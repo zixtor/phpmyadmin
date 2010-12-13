@@ -29,6 +29,8 @@ if (isset($plugin_list)) {
     $plugin_list['xml']['options'][] =
         array('type' => 'begin_group', 'name' => 'structure', 'text' => __('Object creation options (all are recommended)'));
     $plugin_list['xml']['options'][] =
+        array('type' => 'bool', 'name' => 'export_struc', 'text' => __('Structure Schemas'));
+    $plugin_list['xml']['options'][] =
         array('type' => 'bool', 'name' => 'export_functions', 'text' => __('Functions'));
     $plugin_list['xml']['options'][] =
         array('type' => 'bool', 'name' => 'export_procedures', 'text' => __('Procedures'));
