@@ -126,7 +126,59 @@ function PMA_exportHeader() {
         $head .= '    -->' . $crlf;
         $head .= '    <pma:structure_schemas>' . $crlf;
         $head .= '        <pma:database name="' . $db . '" collation="' . $db_collation . '" charset="' . $db_charset . '">' . $crlf;
+
+	/***** Exporting functions first *****/
+
+        if (isset($GLOBALS[$what . '_export_functions']) && $GLOBALS[$what . '_export_functions']) {
+            // Export functions
+            $functions = PMA_DBI_get_procedures_or_functions($db, 'FUNCTION');
+            if ($functions) {
+                foreach ($functions as $function) {
+                    $head .= '            <pma:function name="' . $function . '">' . $crlf;
+
+                    // Do some formatting
+                    $sql = PMA_DBI_get_definition($db, 'FUNCTION', $function);
+                    $sql = rtrim($sql);
+                    $sql = "                " . $sql;
+                    $sql = str_replace("\n", "\n                ", $sql);
+
+                    $head .= $sql . $crlf;
+                    $head .= '            </pma:function>' . $crlf;
+                }
+
+                unset($create_func);
+                unset($function);
+                unset($functions);
+            }
+        }
+
+	/****** Exporting Procedures second ******/
+
+	if (isset($GLOBALS[$what . '_export_procedures']) && $GLOBALS[$what . '_export_procedures']) {
+            // Export procedures
+            $procedures = PMA_DBI_get_procedures_or_functions($db, 'PROCEDURE');
+            if ($procedures) {
+                foreach ($procedures as $procedure) {
+                    $head .= '            <pma:procedure name="' . $procedure . '">' . $crlf;
+
+                    // Do some formatting
+                    $sql = PMA_DBI_get_definition($db, 'PROCEDURE', $procedure);
+                    $sql = rtrim($sql);
+                    $sql = "                " . $sql;
+                    $sql = str_replace("\n", "\n                ", $sql);
+
+                    $head .= $sql . $crlf;
+                    $head .= '            </pma:procedure>' . $crlf;
+                }
+
+                unset($create_proc);
+                unset($procedure);
+                unset($procedures);
+            }
+        }
         
+        /****** Exporting Tables & views structure ******/
+
         if (count($tables) == 0) {
             $tables[] = $table;
         }
@@ -180,52 +232,6 @@ function PMA_exportHeader() {
                     unset($trigger);
                     unset($triggers);
                 }
-            }
-        }
-        
-        if (isset($GLOBALS[$what . '_export_functions']) && $GLOBALS[$what . '_export_functions']) {
-            // Export functions
-            $functions = PMA_DBI_get_procedures_or_functions($db, 'FUNCTION');
-            if ($functions) {
-                foreach ($functions as $function) {
-                    $head .= '            <pma:function name="' . $function . '">' . $crlf;
-                    
-                    // Do some formatting
-                    $sql = PMA_DBI_get_definition($db, 'FUNCTION', $function);
-                    $sql = rtrim($sql);
-                    $sql = "                " . $sql;
-                    $sql = str_replace("\n", "\n                ", $sql);
-                    
-                    $head .= $sql . $crlf;
-                    $head .= '            </pma:function>' . $crlf;
-                }
-                
-                unset($create_func);
-                unset($function);
-                unset($functions);
-            }
-        }
-        
-        if (isset($GLOBALS[$what . '_export_procedures']) && $GLOBALS[$what . '_export_procedures']) {
-            // Export procedures
-            $procedures = PMA_DBI_get_procedures_or_functions($db, 'PROCEDURE');
-            if ($procedures) {
-                foreach ($procedures as $procedure) {
-                    $head .= '            <pma:procedure name="' . $procedure . '">' . $crlf;
-                    
-                    // Do some formatting
-                    $sql = PMA_DBI_get_definition($db, 'PROCEDURE', $procedure);
-                    $sql = rtrim($sql);
-                    $sql = "                " . $sql;
-                    $sql = str_replace("\n", "\n                ", $sql);
-                    
-                    $head .= $sql . $crlf;
-                    $head .= '            </pma:procedure>' . $crlf;
-                }
-                
-                unset($create_proc);
-                unset($procedure);
-                unset($procedures);
             }
         }
         
