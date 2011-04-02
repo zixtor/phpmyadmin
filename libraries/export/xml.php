@@ -75,6 +75,55 @@ function PMA_exportFooter() {
 }
 
 /**
+ * Returns Query for CREATE TABLE Definitions
+ *
+ * @param   string   the SHOW CREATE TABLE query statement result
+ * @param   string   the table/view name
+ * @param   string   the end of line sequence
+ *
+ * @return  string   resulting definition
+ *
+ * @access  public
+ */
+function PMA_getTableDef($tbl, $table, $crlf) {
+    $create_query = '';
+    $create_query .= '            <pma:table name="' . $table . '">' . $crlf;
+
+    $tbl = "                " . $tbl;
+    $tbl = str_replace("\n", "\n                ", $tbl);
+
+    $create_query .= $tbl . ';' . $crlf;
+    $create_query .= '            </pma:table>' . $crlf;
+    return $create_query;
+}
+
+/**
+ * Returns a Actual View Definition
+ *
+ * @param   string   the Database name
+ * @param   string   the SHOW CREATE TABLE query statement result
+ * @param   string   the view name
+ * @param   string   the end of line sequence
+ *
+ * @return  string   resulting definition
+ *
+ * @access  public
+ */
+function PMA_getViewDef($db, $tbl, $view, $crlf) {
+    $create_query = '';
+    $create_query .= '            <pma:view name="' . $view . '">' . $crlf;
+    $tbl = "                " . $tbl;
+    $tbl = str_replace("\n", "\n                ", $tbl);
+
+    // drop database name from VIEW creation.
+    $create_query .= $tbl . ';' . $crlf;
+    $create_query = preg_replace('/' . PMA_backquote($db) . '\./', '', $create_query);
+
+    $create_query .= '            </pma:view>' . $crlf;
+    return $create_query;
+}
+
+/**
  * Outputs export header
  *
  * @return  bool        Whether it suceeded
@@ -204,13 +253,12 @@ function PMA_exportHeader() {
                 continue;
             }
             
-            $head .= '            <pma:' . $type . ' name="' . $table . '">' . $crlf;
-            
-            $tbl = "                " . $tbl;
-            $tbl = str_replace("\n", "\n                ", $tbl);
-            
-            $head .= $tbl . ';' . $crlf;
-            $head .= '            </pma:' . $type . '>' . $crlf;
+            if ($is_view &&  isset($GLOBALS[$what . '_export_views'])) {
+                $view_create[$table] = PMA_getViewDef($db, $tbl, $table, $crlf);
+                continue;
+            }
+
+            $head .= PMA_getTableDef($tbl, $table, $crlf);
             
             if (isset($GLOBALS[$what . '_export_triggers']) && $GLOBALS[$what . '_export_triggers']) {
                 // Export triggers
@@ -235,6 +283,10 @@ function PMA_exportHeader() {
             }
         }
         
+        foreach ($view_create as $view => $definition) {
+            $head .= $definition;
+        }
+
         unset($result);
         
         $head .= '        </pma:database>' . $crlf;
