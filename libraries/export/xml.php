@@ -287,6 +287,25 @@ function PMA_exportHeader() {
             $head .= $definition;
         }
 
+        /****** Exporting Events ******/
+
+        if (isset($GLOBALS[$what . '_export_events']) && $GLOBALS[$what . '_export_events']) {
+
+            if (PMA_MYSQL_INT_VERSION > 50100) {
+                $event_names = PMA_DBI_fetch_result('SELECT EVENT_NAME FROM information_schema.EVENTS WHERE EVENT_SCHEMA= \'' . PMA_sqlAddslashes($db, true) . '\';');
+                if ($event_names) {
+                    foreach($event_names as $event_name) {
+                        $head .= '            <pma:event name="' . $event_name . '">' . $crlf;
+                        $sql = PMA_DBI_get_definition($db, 'EVENT', $event_name);
+                        $sql = '                ' . $sql;
+                        $sql = str_replace("\n", "\n                ", $sql);
+                        $head .= $sql . $crlf;
+                        $head .= '            </pma:event>' . $crlf;
+                    }
+                }
+            }
+        }
+
         unset($result);
 
         $head .= '        </pma:database>' . $crlf;
