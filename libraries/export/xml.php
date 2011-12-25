@@ -50,6 +50,8 @@ if (isset($plugin_list)) {
     $plugin_list['xml']['options'][] = array('type' => 'end_group');
 } else {
 
+define("ENT_XML1", 16);
+
 /**
  * Outputs comment
  *
@@ -186,7 +188,7 @@ function PMA_exportHeader() {
                     $head .= '            <pma:function name="' . $function . '">' . $crlf;
 
                     // Do some formatting
-                    $sql = PMA_DBI_get_definition($db, 'FUNCTION', $function);
+                    $sql = htmlspecialchars(PMA_DBI_get_definition($db, 'FUNCTION', $function), ENT_XML1);
                     $sql = rtrim($sql);
                     $sql = "                " . $sql;
                     $sql = str_replace("\n", "\n                ", $sql);
@@ -211,7 +213,7 @@ function PMA_exportHeader() {
                     $head .= '            <pma:procedure name="' . $procedure . '">' . $crlf;
 
                     // Do some formatting
-                    $sql = PMA_DBI_get_definition($db, 'PROCEDURE', $procedure);
+                    $sql = htmlspecialchars(PMA_DBI_get_definition($db, 'PROCEDURE', $procedure), ENT_XML1);
                     $sql = rtrim($sql);
                     $sql = "                " . $sql;
                     $sql = str_replace("\n", "\n                ", $sql);
@@ -265,7 +267,7 @@ function PMA_exportHeader() {
                 $triggers = PMA_DBI_get_triggers($db, $table);
                 if ($triggers) {
                     foreach ($triggers as $trigger) {
-                        $code = $trigger['create'];
+                        $code = htmlspecialchars($trigger['create'], ENT_XML1);
                         $head .= '            <pma:trigger name="' . $trigger['name'] . '">' . $crlf;
 
                         // Do some formatting
@@ -296,7 +298,7 @@ function PMA_exportHeader() {
                 if ($event_names) {
                     foreach($event_names as $event_name) {
                         $head .= '            <pma:event name="' . $event_name . '">' . $crlf;
-                        $sql = PMA_DBI_get_definition($db, 'EVENT', $event_name);
+                        $sql = htmlspecialchars(PMA_DBI_get_definition($db, 'EVENT', $event_name), ENT_XML1);
                         $sql = '                ' . $sql;
                         $sql = str_replace("\n", "\n                ", $sql);
                         $head .= $sql . $crlf;
