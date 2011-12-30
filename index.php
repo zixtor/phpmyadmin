@@ -89,7 +89,7 @@ $lang_iso_code = $GLOBALS['available_languages'][$GLOBALS['lang']][1];
 
 
 // start output
-header('Content-Type: text/html; charset=' . $GLOBALS['charset']);
+include ('./libraries/header_http.inc.php');
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">
@@ -152,9 +152,11 @@ header('Content-Type: text/html; charset=' . $GLOBALS['charset']);
     };
 // ]]>
 </script>
-<script src="./js/jquery/jquery-1.4.2.js" type="text/javascript"></script>
-<script src="./js/update-location.js" type="text/javascript"></script>
-<script src="./js/common.js" type="text/javascript"></script>
+<?php
+echo PMA_includeJS('jquery/jquery-1.4.4.js');
+echo PMA_includeJS('update-location.js');
+echo PMA_includeJS('common.js');
+?>
 </head>
 <frameset cols="<?php
 if ($GLOBALS['text_dir'] === 'rtl') {

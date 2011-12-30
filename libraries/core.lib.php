@@ -251,6 +251,27 @@ function PMA_fatalError($error_message, $message_args = null)
 }
 
 /**
+ * Returns a link to the PHP documentation
+ *
+ * @param string  anchor in documentation
+ *
+ * @return  string  the URL
+ *
+ * @access  public
+ */
+function PMA_getPHPDocLink($target) {
+    /* Gettext does not have to be loaded yet */
+    if (function_exists('_pgettext')) {
+        /* l10n: Language to use for PHP documentation, please use only languages which do exist in official documentation. */
+        $lang = _pgettext('PHP documentation language', 'en');
+    } else {
+        $lang = 'en';
+    }
+
+    return PMA_linkURL('http://php.net/manual/' . $lang . '/' . $target);
+}
+
+/**
  * Warn or fail on missing extension.
  *
  * @param string $extension Extension name
@@ -259,8 +280,14 @@ function PMA_fatalError($error_message, $message_args = null)
  */
 function PMA_warnMissingExtension($extension, $fatal = false, $extra = '')
 {
-    $message = sprintf(__('The %s extension is missing. Please check your PHP configuration.'),
-        sprintf('[a@http://php.net/%1$s@Documentation][em]%1$s[/em][/a]', $extension));
+    /* Gettext does not have to be loaded yet here */
+    if (function_exists('__')) {
+        $message = __('The %s extension is missing. Please check your PHP configuration.');
+    } else {
+        $message = 'The %s extension is missing. Please check your PHP configuration.';
+    }
+    $message = sprintf($message,
+        '[a@' . PMA_getPHPDocLink('book.' . $extension . '.php') . '@Documentation][em]' . $extension . '[/em][/a]');
     if ($extra != '') {
         $message .= ' ' . $extra;
     }
@@ -654,6 +681,41 @@ function PMA_array_remove($path, &$array)
         } else {
             break;
         }
+    }
+}
+
+/**
+ * Returns link to (possibly) external site using defined redirector.
+ *
+ * @param string $url  URL where to go.
+ *
+ * @return string URL for a link.
+ */
+function PMA_linkURL($url) {
+    if (!preg_match('#^https?://#', $url) || defined('PMA_SETUP')) {
+        return $url;
+    } else {
+        if (!function_exists('PMA_generate_common_url')) {
+            require_once('./libraries/url_generating.lib.php');
+        }
+        $params = array();
+        $params['url'] = $url;
+        return './url.php' . PMA_generate_common_url($params);
+    }
+}
+
+/**
+ * Returns HTML code to include javascript file.
+ *
+ * @param string $url Location of javascript, relative to js/ folder.
+ *
+ * @return string HTML code for javascript inclusion.
+ */
+function PMA_includeJS($url) {
+    if (strpos($url, '?') === FALSE) {
+        return '<script src="./js/' . $url . '?ts=' . filemtime('./js/' . $url) . '" type="text/javascript"></script>' . "\n";
+    } else {
+        return '<script src="./js/' . $url . '" type="text/javascript"></script>' . "\n";
     }
 }
 ?>

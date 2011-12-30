@@ -15,9 +15,9 @@ require_once './libraries/common.inc.php';
 
 
 /**
- * If this is an Ajax request, we do not need to generate all this output.
+ * This is not an Ajax request so we need to generate all this output.
  */
-if (!$GLOBALS['is_ajax_request']) {
+if (isset($GLOBALS['is_ajax_request']) && !$GLOBALS['is_ajax_request']) {
 
     if (empty($GLOBALS['is_header_sent'])) {
 
@@ -96,7 +96,7 @@ if (!$GLOBALS['is_ajax_request']) {
                            );
             $item = '<a href="%1$s?%2$s" class="item">';
             if ($GLOBALS['cfg']['NavigationBarIconic']) {
-                $separator = '        <span class="separator"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'item_ltr.png" width="5" height="9" alt="-" /></span>' . "\n";
+                $separator = '        <span class="separator"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'item_' . $GLOBALS['text_dir'] . '.png" width="5" height="9" alt="-" /></span>' . "\n";
                 $item .= '        <img class="icon" src="' . $GLOBALS['pmaThemeImage'] . '%5$s" width="16" height="16" alt="" /> ' . "\n";
             } else {
                 $separator = '        <span class="separator"> - </span>' . "\n";
@@ -121,13 +121,12 @@ if (!$GLOBALS['is_ajax_request']) {
                     printf($item,
                             $GLOBALS['cfg']['DefaultTabDatabase'],
                             PMA_generate_common_url($GLOBALS['db']),
-                            $GLOBALS['db'],
+                            htmlspecialchars($GLOBALS['db']),
                             __('Database'),
-                            's_tbl.png');
-                    // if the table is being dropped, $_REQUEST['purge'] is set
-                    // (it always contains "1")
+                            's_db.png');
+                    // if the table is being dropped, $_REQUEST['purge'] is set to '1'
                     // so do not display the table name in upper div
-                    if (strlen($GLOBALS['table']) && ! (isset($_REQUEST['purge']))) {
+                    if (strlen($GLOBALS['table']) && ! (isset($_REQUEST['purge']) && $_REQUEST['purge'] == '1')) {
                         require_once './libraries/tbl_info.inc.php';
 
                         echo $separator;
@@ -183,4 +182,10 @@ if (!$GLOBALS['is_ajax_request']) {
          */
         $GLOBALS['is_header_sent'] = true;
 } //end if(!$GLOBALS['is_ajax_request'])
+else {
+    if (empty($GLOBALS['is_header_sent'])) {
+        require_once './libraries/header_http.inc.php';
+        $GLOBALS['is_header_sent'] = true;
+    }
+}
 ?>

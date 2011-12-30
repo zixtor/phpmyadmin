@@ -16,8 +16,15 @@ require_once './libraries/common.inc.php';
 $GLOBALS['js_include'][] = 'server_privileges.js';
 $GLOBALS['js_include'][] = 'functions.js';
 $GLOBALS['js_include'][] = 'jquery/jquery-ui-1.8.custom.js';
+$_add_user_error = false;
 
 require './libraries/server_common.inc.php';
+
+if ($GLOBALS['cfg']['AjaxEnable']) {
+    $conditional_class = 'ajax';
+} else {
+    $conditional_class = '';
+}
 
 /**
  * Messages are built using the message name
@@ -115,6 +122,8 @@ if (!$is_superuser) {
     require './libraries/footer.inc.php';
 }
 
+$random_n = mt_rand(0,1000000); // a random number that will be appended to the id of the user forms
+
 /**
  * Escapes wildcard in a database+table specification
  * before using it in a GRANT statement.
@@ -157,8 +166,8 @@ function PMA_RangeOfUsers($initial = '')
     // strtolower() is used because the User field
     // might be BINARY, so LIKE would be case sensitive
     if (!empty($initial)) {
-        $ret = " WHERE `User` LIKE '" . $initial . "%'"
-            . " OR `User` LIKE '" . strtolower($initial) . "%'";
+        $ret = " WHERE `User` LIKE '" . PMA_sqlAddslashes($initial) . "%'"
+            . " OR `User` LIKE '" . PMA_sqlAddslashes(strtolower($initial)) . "%'";
     } else {
         $ret = '';
     }
@@ -171,7 +180,7 @@ function PMA_RangeOfUsers($initial = '')
  * @param   array   $row        the row
  * @param   boolean $enableHTML add <dfn> tag with tooltips
  *
- * @global  ressource $user_link the database connection
+ * @global  resource $user_link the database connection
  *
  * @return  array
  */
@@ -319,6 +328,8 @@ function PMA_display_column_privs($columns, $row, $name_for_select,
  */
 function PMA_displayPrivTable($db = '*', $table = '*', $submit = TRUE)
 {
+    global $random_n;
+
     if ($db == '*') {
         $table = '*';
     }
@@ -499,6 +510,8 @@ function PMA_displayPrivTable($db = '*', $table = '*', $submit = TRUE)
 
         // g l o b a l    o r    d b - s p e c i f i c
         //
+        $privTable_names = array(0 => __('Data'), 1 => __('Structure'), 2 => __('Administration'));
+
         // d a t a
         $privTable[0] = array(
             array('Select', 'SELECT', __('Allows reading data.')),
@@ -566,65 +579,33 @@ function PMA_displayPrivTable($db = '*', $table = '*', $submit = TRUE)
                     ? __('Database-specific privileges')
                     : __('Table-specific privileges'))) . "\n"
            . '        (<a href="server_privileges.php?'
-            . $GLOBALS['url_query'] . '&amp;checkall=1" onclick="setCheckboxes(\'addUsersForm\', true); return false;">'
+            . $GLOBALS['url_query'] . '&amp;checkall=1" onclick="setCheckboxes(\'addUsersForm_' . $random_n . '\', true); return false;">'
             . __('Check All') . '</a> /' . "\n"
            . '        <a href="server_privileges.php?'
-            . $GLOBALS['url_query'] . '" onclick="setCheckboxes(\'addUsersForm\', false); return false;">'
+            . $GLOBALS['url_query'] . '" onclick="setCheckboxes(\'addUsersForm_' . $random_n . '\', false); return false;">'
             . __('Uncheck All') . '</a>)' . "\n"
            . '    </legend>' . "\n"
-           . '    <p><small><i>' . __(' Note: MySQL privilege names are expressed in English ') . '</i></small></p>' . "\n"
-           . '    <fieldset>' . "\n"
-           . '        <legend>' . __('Data') . '</legend>' . "\n";
-        foreach ($privTable[0] as $priv)
-        {
-            echo '        <div class="item">' . "\n"
-               . '            <input type="checkbox"'
-                . (empty($GLOBALS['checkall']) ?  '' : ' checked="checked"')
-                . ' name="' . $priv[0] . '_priv" id="checkbox_' . $priv[0]
-                . '_priv" value="Y" '
-                . ($row[$priv[0] . '_priv'] == 'Y' ? 'checked="checked" ' : '')
-                . 'title="' . $priv[2] . '"/>' . "\n"
-               . '            <label for="checkbox_' . $priv[0]
-                . '_priv"><tt><dfn title="' . $priv[2] . '">' . $priv[1]
-                . '</dfn></tt></label>' . "\n"
-               . '        </div>' . "\n";
-        }
-        echo '    </fieldset>' . "\n"
-           . '    <fieldset>' . "\n"
-           . '        <legend>' . __('Structure') . '</legend>' . "\n";
-        foreach ($privTable[1] as $priv)
-        {
-            echo '        <div class="item">' . "\n"
-               . '            <input type="checkbox"'
-                . (empty($GLOBALS['checkall']) ?  '' : ' checked="checked"')
-                . ' name="' . $priv[0] . '_priv" id="checkbox_' . $priv[0]
-                . '_priv" value="Y" '
-                . ($row[$priv[0] . '_priv'] == 'Y' ? 'checked="checked" ' : '')
-                . 'title="' . $priv[2] . '"/>' . "\n"
-               . '            <label for="checkbox_' . $priv[0]
-                . '_priv"><tt><dfn title="' . $priv[2] . '">' . $priv[1]
-                . '</dfn></tt></label>' . "\n"
-               . '        </div>' . "\n";
-        }
-        echo '    </fieldset>' . "\n"
-           . '    <fieldset>' . "\n"
-           . '        <legend>' . __('Administration') . '</legend>' . "\n";
-        foreach ($privTable[2] as $priv)
-        {
-            echo '        <div class="item">' . "\n"
-               . '            <input type="checkbox"'
-                . (empty($GLOBALS['checkall']) ?  '' : ' checked="checked"')
-                . ' name="' . $priv[0] . '_priv" id="checkbox_' . $priv[0]
-                . '_priv" value="Y" '
-                . ($row[$priv[0] . '_priv'] == 'Y' ? 'checked="checked" ' : '')
-                . 'title="' . $priv[2] . '"/>' . "\n"
-               . '            <label for="checkbox_' . $priv[0]
-                . '_priv"><tt><dfn title="' . $priv[2] . '">' . $priv[1]
-                . '</dfn></tt></label>' . "\n"
-               . '        </div>' . "\n";
+           . '    <p><small><i>' . __(' Note: MySQL privilege names are expressed in English ') . '</i></small></p>' . "\n";
+
+        // Output the Global privilege tables with checkboxes
+        foreach($privTable as $i => $table) {
+            echo '    <fieldset>' . "\n"
+                . '        <legend>' . __($privTable_names[$i]) . '</legend>' . "\n";
+            foreach ($table as $priv)
+            {
+                echo '        <div class="item">' . "\n"
+                    . '            <input type="checkbox"'
+                    .                   ' name="' . $priv[0] . '_priv" id="checkbox_' . $priv[0] . '_priv"'
+                    .                   ' value="Y" title="' . $priv[2] . '"'
+                    .                   ((!empty($GLOBALS['checkall']) || $row[$priv[0] . '_priv'] == 'Y') ?  ' checked="checked"' : '')
+                    .               '/>' . "\n"
+                    . '            <label for="checkbox_' . $priv[0] . '_priv"><tt><dfn title="' . $priv[2] . '">'
+                    .                    $priv[1] . '</dfn></tt></label>' . "\n"
+                    . '        </div>' . "\n";
+            }
+            echo '    </fieldset>' . "\n";
         }
 
-        echo '    </fieldset>' . "\n";
         // The "Resource limits" box is not displayed for db-specific privs
         if ($db == '*') {
             echo '    <fieldset>' . "\n"
@@ -880,6 +861,7 @@ if (isset($_REQUEST['adduser_submit']) || isset($_REQUEST['change_copy'])) {
         $message = PMA_Message::error(__('The user %s already exists!'));
         $message->addParam('[i]\'' . $username . '\'@\'' . $hostname . '\'[/i]');
         $_REQUEST['adduser'] = true;
+        $_add_user_error = true;
     } else {
 
         $create_user_real = 'CREATE USER \'' . PMA_sqlAddslashes($username) . '\'@\'' . PMA_sqlAddslashes($hostname) . '\'';
@@ -1177,7 +1159,8 @@ if (!empty($update_privs)) {
         $sql_query2 .= ';';
     }
     if (! PMA_DBI_try_query($sql_query0)) {
-        // this query may fail, but this does not matter :o)
+        // This might fail when the executing user does not have ALL PRIVILEGES himself.
+        // See https://sourceforge.net/tracker/index.php?func=detail&aid=3285929&group_id=23067&atid=377408
         $sql_query0 = '';
     }
     if (isset($sql_query1) && !PMA_DBI_try_query($sql_query1)) {
@@ -1276,7 +1259,7 @@ if (isset($_REQUEST['delete']) || (isset($_REQUEST['change_copy']) && $_REQUEST[
         if (isset($_REQUEST['drop_users_db'])) {
             $queries[] = 'DROP DATABASE IF EXISTS ' . PMA_backquote($this_user) . ';';
             $GLOBALS['reload'] = TRUE;
-            
+
             if($GLOBALS['is_ajax_request'] != true) {
                 PMA_reloadNavigation();
             }
@@ -1346,7 +1329,7 @@ if (isset($_REQUEST['flush_privileges'])) {
 /**
  * defines some standard links
  */
-$link_edit = '<a class="edit_user_anchor" href="server_privileges.php?' . $GLOBALS['url_query']
+$link_edit = '<a class="edit_user_anchor ' . $conditional_class . '" href="server_privileges.php?' . $GLOBALS['url_query']
     . '&amp;username=%s'
     . '&amp;hostname=%s'
     . '&amp;dbname=%s'
@@ -1363,7 +1346,7 @@ $link_revoke = '<a href="server_privileges.php?' . $GLOBALS['url_query']
     . PMA_getIcon('b_usrdrop.png', __('Revoke'))
     . '</a>';
 
-$link_export = '<a class="export_user_anchor" href="server_privileges.php?' . $GLOBALS['url_query']
+$link_export = '<a class="export_user_anchor ' . $conditional_class . '" href="server_privileges.php?' . $GLOBALS['url_query']
     . '&amp;username=%s'
     . '&amp;hostname=%s'
     . '&amp;initial=%s'
@@ -1375,7 +1358,7 @@ $link_export = '<a class="export_user_anchor" href="server_privileges.php?' . $G
  * If we are in an Ajax request for Create User/Edit User/Revoke User/Flush Privileges,
  * show $message and exit.
  */
-if( $GLOBALS['is_ajax_request'] && !isset($_REQUEST['export']) && !isset($_REQUEST['adduser']) && !isset($_REQUEST['initial']) && !isset($_REQUEST['showall']) && !isset($_REQUEST['edit_user_dialog'])) {
+if( $GLOBALS['is_ajax_request'] && !isset($_REQUEST['export']) && (!isset($_REQUEST['adduser']) || $_add_user_error) && !isset($_REQUEST['initial']) && !isset($_REQUEST['showall']) && !isset($_REQUEST['edit_user_dialog'])) {
 
     if(isset($sql_query)) {
         $extra_data['sql_query'] = PMA_showMessage(NULL, $sql_query);
@@ -1411,7 +1394,7 @@ if( $GLOBALS['is_ajax_request'] && !isset($_REQUEST['export']) && !isset($_REQUE
 
         $new_user_string .='</td>';
 
-        $new_user_string .= '<td>'.sprintf($link_edit, urlencode($username), urlencode($host), '', '' ).'</td>'."\n";
+        $new_user_string .= '<td>'.sprintf($link_edit, urlencode($username), urlencode($hostname), '', '' ).'</td>'."\n";
         $new_user_string .= '<td>'.sprintf($link_export, urlencode($username), urlencode($hostname), (isset($initial) ? $initial : '')).'</td>'."\n";
 
         $new_user_string .= '</tr>';
@@ -1424,18 +1407,24 @@ if( $GLOBALS['is_ajax_request'] && !isset($_REQUEST['export']) && !isset($_REQUE
          */
         $new_user_initial = strtoupper(substr($username, 0, 1));
         $new_user_initial_string = '<a href="server_privileges.php?' . $GLOBALS['url_query'] . '&initial=' . $new_user_initial
-            .'>' . $new_user_initial . '</a>';
+            .'">' . $new_user_initial . '</a>';
         $extra_data['new_user_initial'] = $new_user_initial;
         $extra_data['new_user_initial_string'] = $new_user_initial_string;
     }
 
     if(isset($update_privs)) {
+        $extra_data['db_specific_privs'] = false;
+        if (isset($dbname_is_wildcard)) {
+            $extra_data['db_specific_privs'] = !$dbname_is_wildcard;
+        }
         $new_privileges = join(', ', PMA_extractPrivInfo('', true));
 
         $extra_data['new_privileges'] = $new_privileges;
     }
 
-    PMA_ajaxResponse($message, $message->isSuccess(), $extra_data);
+    if ($message instanceof PMA_Message) {
+        PMA_ajaxResponse($message, $message->isSuccess(), $extra_data);
+    }
 }
 
 /**
@@ -1583,7 +1572,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
 
                 uksort($array_initials, "strnatcasecmp");
 
-                echo '<table id="initials_table" cellspacing="5"><tr>';
+                echo '<table id="initials_table" class="' . $conditional_class . '" <cellspacing="5"><tr>';
                 foreach ($array_initials as $tmp_initial => $initial_was_found) {
                     if ($initial_was_found) {
                         echo '<td><a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;initial=' . urlencode($tmp_initial) . '">' . $tmp_initial . '</a></td>' . "\n";
@@ -1591,7 +1580,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
                         echo '<td>' . $tmp_initial . '</td>';
                     }
                 }
-                echo '<td><a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;showall=1">[' . __('Show all') . ']</a></td>' . "\n";
+                echo '<td><a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;showall=1" class="nowrap">[' . __('Show all') . ']</a></td>' . "\n";
                 echo '</tr></table>';
             }
 
@@ -1685,7 +1674,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
 
                 // add/delete user fieldset
                 echo '    <fieldset id="fieldset_add_user">' . "\n"
-                   . '        <a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;adduser=1">' . "\n"
+                   . '        <a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;adduser=1" class="' . $conditional_class . '">' . "\n"
                    . PMA_getIcon('b_usradd.png')
                    . '            ' . __('Add a new User') . '</a>' . "\n"
                    . '    </fieldset>' . "\n"
@@ -1702,14 +1691,14 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
                    . '        </label>' . "\n"
                    . '    </fieldset>' . "\n"
                    . '    <fieldset id="fieldset_delete_user_footer" class="tblFooters">' . "\n"
-                   . '        <input type="submit" name="delete" value="' . __('Go') . '" id="buttonGo" />' . "\n"
+                   . '        <input type="submit" name="delete" value="' . __('Go') . '" id="buttonGo" class="' . $conditional_class . '"/>' . "\n"
                    . '    </fieldset>' . "\n"
                    . '</form>' . "\n";
             } else {
 
                 unset ($row);
                 echo '    <fieldset id="fieldset_add_user">' . "\n"
-                   . '        <a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;adduser=1">' . "\n"
+                   . '        <a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;adduser=1" class="' . $conditional_class . '">' . "\n"
                    . PMA_getIcon('b_usradd.png')
                    . '            ' . __('Add a new User') . '</a>' . "\n"
                    . '    </fieldset>' . "\n";
@@ -1720,7 +1709,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
             }
 
             $flushnote = new PMA_Message(__('Note: phpMyAdmin gets the users\' privileges directly from MySQL\'s privilege tables. The content of these tables may differ from the privileges the server uses, if they have been changed manually. In this case, you should %sreload the privileges%s before you continue.'), PMA_Message::NOTICE);
-            $flushnote->addParam('<a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;flush_privileges=1" id="reload_privileges_anchor">', false);
+            $flushnote->addParam('<a href="server_privileges.php?' . $GLOBALS['url_query'] . '&amp;flush_privileges=1" id="reload_privileges_anchor" class="' . $conditional_class . '">', false);
             $flushnote->addParam('</a>', false);
             $flushnote->display();
          }
@@ -1772,12 +1761,12 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
         $user_does_not_exists = (bool) ! PMA_DBI_fetch_value($sql);
         unset($sql);
         if ($user_does_not_exists) {
-            PMA_Message::warning(__('The selected user was not found in the privilege table.'))->display();
+            PMA_Message::error(__('The selected user was not found in the privilege table.'))->display();
             PMA_displayLoginInformationFields();
             //require './libraries/footer.inc.php';
         }
 
-        echo '<form name="usersForm" id="addUsersForm" action="server_privileges.php" method="post">' . "\n";
+        echo '<form name="usersForm" id="addUsersForm_' . $random_n . '" action="server_privileges.php" method="post">' . "\n";
         $_params = array(
             'username' => $username,
             'hostname' => $hostname,
@@ -1801,7 +1790,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
             // but only if $dbname contains no wildcards
 
             // table header
-            echo '<form action="server_privileges.php" method="post">' . "\n"
+            echo '<form action="server_privileges.php" id="db_or_table_specific_priv" method="post">' . "\n"
                . PMA_generate_common_hidden_inputs('', '')
                . '<input type="hidden" name="username" value="' . htmlspecialchars($username) . '" />' . "\n"
                . '<input type="hidden" name="hostname" value="' . htmlspecialchars($hostname) . '" />' . "\n"
@@ -2112,13 +2101,13 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
         }
     }
 } elseif (isset($_REQUEST['adduser'])) {
-    
+
     // Add a new user
     $GLOBALS['url_query'] .= '&amp;adduser=1';
     echo '<h2>' . "\n"
        . PMA_getIcon('b_usradd.png') . __('Add a new User') . "\n"
        . '</h2>' . "\n"
-       . '<form name="usersForm" id="addUsersForm" action="server_privileges.php" method="post">' . "\n"
+       . '<form name="usersForm" id="addUsersForm_' . $random_n . '" action="server_privileges.php" method="post">' . "\n"
        . PMA_generate_common_hidden_inputs('', '');
     PMA_displayLoginInformationFields('new');
     echo '<fieldset id="fieldset_add_user_database">' . "\n"
@@ -2151,7 +2140,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
        . '</form>' . "\n";
 } else {
     // check the privileges for a particular database.
-    echo '<table id="tablespecificuserrights" class="data">' . "\n"
+    echo '<form id="usersForm"><table id="dbspecificuserrights" class="data">' . "\n"
        . '<caption class="tblHeaders">' . "\n"
        . PMA_getIcon('b_usrcheck.png')
        . '    ' . sprintf(__('Users having access to &quot;%s&quot;'), '<a href="' . $GLOBALS['cfg']['DefaultTabDatabase'] . '?' . PMA_generate_common_url($checkprivs) . '">' .  htmlspecialchars($checkprivs) . '</a>') . "\n"
@@ -2246,7 +2235,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
                 $current_privileges[] = $row;
                 $row = PMA_DBI_fetch_assoc($res);
             }
-            echo '    <tr class="' . ($odd_row ? 'odd' : 'even') . '">' . "\n"
+            echo '    <tr class="noclick ' . ($odd_row ? 'odd' : 'even') . '">' . "\n"
                . '        <td';
             if (count($current_privileges) > 1) {
                 echo ' rowspan="' . count($current_privileges) . '"';
@@ -2299,7 +2288,7 @@ if (empty($_REQUEST['adduser']) && (! isset($checkprivs) || ! strlen($checkprivs
            . '    </tr>' . "\n";
     }
     echo '</tbody>' . "\n"
-       . '</table>' . "\n";
+       . '</table></form>' . "\n";
 
     // Offer to create a new user for the current database
     echo '<fieldset id="fieldset_add_user">' . "\n"

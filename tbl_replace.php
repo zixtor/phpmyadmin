@@ -65,6 +65,9 @@ PMA_DBI_select_db($GLOBALS['db']);
  */
 $goto_include = false;
 
+// Needed for generation of Inline Edit anchors
+$GLOBALS['js_include'][] = 'sql.js';
+
 if (isset($_REQUEST['insert_rows']) && is_numeric($_REQUEST['insert_rows']) && $_REQUEST['insert_rows'] != $cfg['InsertRows']) {
     $cfg['InsertRows'] = $_REQUEST['insert_rows'];
     $GLOBALS['js_include'][] = 'tbl_change.js';
@@ -323,9 +326,13 @@ if ($is_insert && count($value_sets) > 0) {
     unset($query_fields);
 } elseif (empty($query)) {
     // No change -> move back to the calling script
+    //
+    // Note: logic passes here for inline edit
     $message = PMA_Message::success(__('No change'));
     $active_page = $goto_include;
-    require_once './libraries/header.inc.php';
+    if(! $GLOBALS['is_ajax_request'] == true) {
+        require_once './libraries/header.inc.php';
+    }
     require './' . PMA_securePath($goto_include);
     exit;
 }
@@ -361,9 +368,9 @@ foreach ($query as $single_query) {
     }
 
     if (! $result) {
-        $error_messages[] = PMA_DBI_getError();
+        $error_messages[] = PMA_Message::sanitize(PMA_DBI_getError());
     } else {
-        // the following is a real assignment:
+        // The next line contains a real assignment, it's not a typo
         if ($tmp = @PMA_DBI_affected_rows()) {
             $total_affected_rows += $tmp;
         }
@@ -385,8 +392,8 @@ foreach ($query as $single_query) {
     } // end if
 
     foreach (PMA_DBI_get_warnings() as $warning) {
-        $warning_messages[] = $warning['Level'] . ': #' . $warning['Code']
-            . ' ' . $warning['Message'];
+        $warning_messages[] = PMA_Message::sanitize($warning['Level'] . ': #' . $warning['Code']
+            . ' ' . $warning['Message']);
     }
 
     unset($result);
@@ -402,12 +409,8 @@ if ($is_insert && count($value_sets) > 0) {
 $message->addMessages($last_messages, '<br />');
 
 if (! empty($warning_messages)) {
-    /**
-     * @todo use a <div class="warning"> in PMA_showMessage() for this part of
-     * the message
-     */
     $message->addMessages($warning_messages, '<br />');
-    $message->isWarning(true);
+    $message->isError(true);
 }
 if (! empty($error_messages)) {
     $message->addMessages($error_messages);

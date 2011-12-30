@@ -58,7 +58,7 @@ $GLOBALS['error_handler'] = new PMA_Error_Handler();
 $cfg['Error_Handler']['display'] = TRUE;
 
 /*
- * This setting was removed in PHP 5.3. But at this point PMA_PHP_INT_VERSION 
+ * This setting was removed in PHP 5.3. But at this point PMA_PHP_INT_VERSION
  * is not yet defined so we use another way to find out the PHP version.
  */
 if (version_compare(phpversion(), '5.3', 'lt')) {
@@ -69,11 +69,15 @@ if (version_compare(phpversion(), '5.3', 'lt')) {
 }
 
 /**
- * Avoid problems with magic_quotes_runtime
- * (in the future, this setting will be removed but it's not yet
- * known in which PHP version)
+ * This setting was removed in PHP 5.4. But at this point PMA_PHP_INT_VERSION
+ * is not yet defined so we use another way to find out the PHP version.
  */
-@ini_set('magic_quotes_runtime', false);
+if (version_compare(phpversion(), '5.4', 'lt')) {
+    /**
+     * Avoid problems with magic_quotes_runtime
+     */ 
+    @ini_set('magic_quotes_runtime', false);
+}
 
 /**
  * for verification in all procedural scripts under libraries
@@ -253,12 +257,18 @@ if (isset($_POST['usesubform'])) {
 }
 // end check if a subform is submitted
 
-// remove quotes added by php
-if (function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc()) {
-    PMA_arrayWalkRecursive($_GET, 'stripslashes', true);
-    PMA_arrayWalkRecursive($_POST, 'stripslashes', true);
-    PMA_arrayWalkRecursive($_COOKIE, 'stripslashes', true);
-    PMA_arrayWalkRecursive($_REQUEST, 'stripslashes', true);
+/**
+ * This setting was removed in PHP 5.4. But at this point PMA_PHP_INT_VERSION
+ * is not yet defined so we use another way to find out the PHP version.
+ */
+if (version_compare(phpversion(), '5.4', 'lt')) {
+    // remove quotes added by PHP
+    if (function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc()) {
+        PMA_arrayWalkRecursive($_GET, 'stripslashes', true);
+        PMA_arrayWalkRecursive($_POST, 'stripslashes', true);
+        PMA_arrayWalkRecursive($_COOKIE, 'stripslashes', true);
+        PMA_arrayWalkRecursive($_REQUEST, 'stripslashes', true);
+    }
 }
 
 /**
@@ -414,7 +424,6 @@ $goto_whitelist = array(
     //'themes.php',
     'transformation_overview.php',
     'transformation_wrapper.php',
-    'translators.html',
     'user_password.php',
 );
 
@@ -467,7 +476,7 @@ if (! PMA_isValid($_REQUEST['token']) || $_SESSION[' PMA_token '] != $_REQUEST['
         /* needed for direct access, see FAQ 1.34
          * also, server needed for cookie login screen (multi-server)
          */
-        'server', 'db', 'table', 'target',
+        'server', 'db', 'table', 'target', 'lang',
         /* Session ID */
         'phpMyAdmin',
         /* Cookie preferences */
@@ -477,7 +486,7 @@ if (! PMA_isValid($_REQUEST['token']) || $_SESSION[' PMA_token '] != $_REQUEST['
         /* for playing blobstreamable media */
         'media_type', 'custom_type', 'bs_reference',
         /* for changing BLOB repository file MIME type */
-        'bs_db', 'bs_table', 'bs_ref', 'bs_new_mime_type'
+        'bs_db', 'bs_table', 'bs_ref', 'bs_new_mime_type',
     );
     /**
      * Require cleanup functions
@@ -540,7 +549,7 @@ $_REQUEST['js_frame'] = PMA_ifSetOr($_REQUEST['js_frame'], '');
  * @global array $js_include
  */
 $GLOBALS['js_include'] = array();
-$GLOBALS['js_include'][] = 'jquery/jquery-1.4.2.js';
+$GLOBALS['js_include'][] = 'jquery/jquery-1.4.4.js';
 $GLOBALS['js_include'][] = 'update-location.js';
 
 /**
@@ -650,11 +659,6 @@ unset($default_server);
 /******************************************************************************/
 /* setup themes                                          LABEL_theme_setup    */
 
-if (isset($_REQUEST['custom_color_reset'])) {
-    unset($_SESSION['tmp_user_values']['custom_color']);
-} elseif (isset($_REQUEST['custom_color'])) {
-    $_SESSION['tmp_user_values']['custom_color'] = $_REQUEST['custom_color'];
-}
 /**
  * @global PMA_Theme_Manager $_SESSION['PMA_Theme_Manager']
  */
@@ -842,7 +846,7 @@ if (! defined('PMA_MINIMUM_COMMON')) {
         // http://cvs.apache.org/viewcvs.cgi/httpd-2.0/modules/aaa/mod_access.c?rev=1.37&content-type=text/vnd.viewcvs-markup
         // Look at: "static int check_dir_access(request_rec *r)"
         if (isset($cfg['Server']['AllowDeny'])
-          && isset($cfg['Server']['AllowDeny']['order'])) {
+                && isset($cfg['Server']['AllowDeny']['order'])) {
 
             /**
              * ip based access library

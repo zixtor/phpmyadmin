@@ -38,7 +38,7 @@ if (isset($plugin_list)) {
     } else {
         $hint = new PMA_Message(__('If the data in each row of the file is not in the same order as in the database, list the corresponding column names here. Column names must be separated by commas and not enclosed in quotations.'));
         $plugin_list['csv']['options'][] =
-            array('type' => 'text', 'name' => 'columns', 'text' => __('Column names: ' . PMA_showHint($hint)));
+            array('type' => 'text', 'name' => 'columns', 'text' => __('Column names: ') . PMA_showHint($hint));
     }
     $plugin_list['csv']['options'][] = array('type' => 'end_group');
 
@@ -56,10 +56,12 @@ $csv_enclosed = strtr($csv_enclosed,  $replacements);
 $csv_escaped = strtr($csv_escaped, $replacements);
 $csv_new_line = strtr($csv_new_line, $replacements);
 
+$param_error = FALSE;
 if (strlen($csv_terminated) != 1) {
     $message = PMA_Message::error(__('Invalid parameter for CSV import: %s'));
     $message->addParam(__('Columns terminated by'), false);
     $error = TRUE;
+    $param_error = TRUE;
     // The default dialog of MS Excel when generating a CSV produces a
     // semi-colon-separated file with no chance of specifying the
     // enclosing character. Thus, users who want to import this file
@@ -72,14 +74,22 @@ if (strlen($csv_terminated) != 1) {
     $message = PMA_Message::error(__('Invalid parameter for CSV import: %s'));
     $message->addParam(__('Columns enclosed by'), false);
     $error = TRUE;
+    $param_error = TRUE;
 } elseif (strlen($csv_escaped) != 1) {
     $message = PMA_Message::error(__('Invalid parameter for CSV import: %s'));
     $message->addParam(__('Columns escaped by'), false);
     $error = TRUE;
+    $param_error = TRUE;
 } elseif (strlen($csv_new_line) != 1 && $csv_new_line != 'auto') {
     $message = PMA_Message::error(__('Invalid parameter for CSV import: %s'));
     $message->addParam(__('Lines terminated by'), false);
     $error = TRUE;
+    $param_error = TRUE;
+}
+
+// If there is an error in the parameters entered, indicate that immediately.
+if ($param_error) {
+    PMA_mysqlDie($message->getMessage(), '', '', $err_url);
 }
 
 $buffer = '';

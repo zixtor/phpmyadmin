@@ -14,6 +14,13 @@ if (! defined('PHPMYADMIN')) {
 }
 
 /**
+ * We need way to disable external XML entities processing.
+ */
+if (!function_exists('libxml_disable_entity_loader')) {
+    return;
+}
+
+/**
  * The possible scopes for $plugin_param are: 'table', 'database', and 'server'
  */
 
@@ -34,9 +41,6 @@ if (isset($plugin_list)) {
     /* We do not define function when plugin is just queried for information above */
     return;
 }
-
-ini_set('memory_limit', '128M');
-set_time_limit(120);
 
 $i = 0;
 $len = 0;
@@ -64,6 +68,11 @@ while (! ($finished && $i >= $len) && ! $error && ! $timeout_passed) {
 unset($data);
 
 /**
+ * Disable loading of external XML entities.
+ */
+libxml_disable_entity_loader();
+
+/**
  * Load the XML string
  *
  * The option LIBXML_COMPACT is specified because it can
@@ -74,7 +83,14 @@ $xml = simplexml_load_string($buffer, "SimpleXMLElement", LIBXML_COMPACT);
 
 unset($buffer);
 
-$sheets = $xml->children('office', true)->{'body'}->{'spreadsheet'}->children('table', true);
+if ($xml === FALSE) {
+    $sheets = array();
+    /* TODO: this message should be improved later, used existing because of string freeze */
+    $message = PMA_Message::error(__('Error in Processing Request'));
+    $error = TRUE;
+} else {
+    $sheets = $xml->children('office', true)->{'body'}->{'spreadsheet'}->children('table', true);
+}
 
 $tables = array();
 
@@ -102,25 +118,31 @@ foreach ($sheets as $sheet) {
                 $cell_attrs = $cell->attributes('office', true);
 
                 if (count($text) != 0) {
-                    if (! $col_names_in_first_row) {
-                        if ($_REQUEST['ods_recognize_percentages'] && !strcmp('percentage', $cell_attrs['value-type'])) {
-                            $tempRow[] = (double)$cell_attrs['value'];
-                        } elseif ($_REQUEST['ods_recognize_currency'] && !strcmp('currency', $cell_attrs['value-type'])) {
-                            $tempRow[] = (double)$cell_attrs['value'];
-                        } else {
-                            $tempRow[] = (string)$text;
-                        }
-                    } else {
-                        if ($_REQUEST['ods_recognize_percentages'] && !strcmp('percentage', $cell_attrs['value-type'])) {
-                            $col_names[] = (double)$cell_attrs['value'];
-                        } else if ($_REQUEST['ods_recognize_currency'] && !strcmp('currency', $cell_attrs['value-type'])) {
-                            $col_names[] = (double)$cell_attrs['value'];
-                        } else {
-                            $col_names[] = (string)$text;
-                        }
-                    }
+                    $attr = $cell->attributes('table', true);
+                    $num_repeat = (int) $attr['number-columns-repeated'];
+                    $num_iterations = $num_repeat ? $num_repeat : 1;
 
-                    ++$col_count;
+                    for ($k = 0; $k < $num_iterations; $k++) {
+                        if (! $col_names_in_first_row) {
+                            if ($_REQUEST['ods_recognize_percentages'] && !strcmp('percentage', $cell_attrs['value-type'])) {
+                                $tempRow[] = (double)$cell_attrs['value'];
+                            } elseif ($_REQUEST['ods_recognize_currency'] && !strcmp('currency', $cell_attrs['value-type'])) {
+                                $tempRow[] = (double)$cell_attrs['value'];
+                            } else {
+                                $tempRow[] = (string)$text;
+                            }
+                        } else {
+                            if ($_REQUEST['ods_recognize_percentages'] && !strcmp('percentage', $cell_attrs['value-type'])) {
+                                $col_names[] = (double)$cell_attrs['value'];
+                            } else if ($_REQUEST['ods_recognize_currency'] && !strcmp('currency', $cell_attrs['value-type'])) {
+                                $col_names[] = (double)$cell_attrs['value'];
+                            } else {
+                                $col_names[] = (string)$text;
+                            }
+                        }
+
+                        ++$col_count;
+                    }
                 } else {
                     /* Number of blank columns repeated */
                     if ($col_count < count($row->children('table', true)) - 1) {

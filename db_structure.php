@@ -83,6 +83,7 @@ if ($num_tables == 0) {
 /**
  * Displays the tables list
  */
+echo '<div id="tableslistcontainer">';
 $_url_params = array(
     'pos' => $pos,
     'db'  => $db);
@@ -144,6 +145,8 @@ foreach ($tables as $keyname => $each_table) {
         case 'HEAP' :
         case 'MEMORY' :
         case 'ARCHIVE' :
+        case 'Aria' :
+        case 'Maria' :
             if ($db_is_information_schema) {
                 $each_table['Rows'] = PMA_Table::countRecords($db,
                     $each_table['Name']);
@@ -251,27 +254,57 @@ foreach ($tables as $keyname => $each_table) {
         $hidden_fields[] = '<input type="hidden" name="views[]" value="' .  htmlspecialchars($each_table['TABLE_NAME']) . '" />';
     }
 
-    if ($each_table['TABLE_ROWS'] > 0) {
-        $browse_table = '<a href="sql.php?' . $tbl_url_query . '&amp;pos=0">' . $titles['Browse'] . '</a>';
-        $search_table = '<a href="tbl_select.php?' . $tbl_url_query . '">' . $titles['Search'] . '</a>';
-        $browse_table_label = '<a href="sql.php?' . $tbl_url_query . '&amp;pos=0">' . $truename . '</a>';
+    /*
+     * Always activate links for Browse, Search and Empty, even if
+     * the icons are greyed, because
+     * 1. for views, we don't know the number of rows at this point
+     * 2. for tables, another source could have populated them since the
+     *    page was generated
+     *
+     * I could have used the PHP ternary conditional operator but I find
+     * the code easier to read without this operator.
+     */
+    if ($each_table['TABLE_ROWS'] > 0 || $table_is_view) {
+        $may_have_rows = true;
     } else {
-        $browse_table = $titles['NoBrowse'];
-        $search_table = $titles['NoSearch'];
-        $browse_table_label = '<a href="tbl_structure.php?' . $tbl_url_query . '">' . $truename . '</a>';
+        $may_have_rows = false;
     }
+    $browse_table = '<a href="sql.php?' . $tbl_url_query . '&amp;pos=0">';
+    if ($may_have_rows) {
+        $browse_table .= $titles['Browse'];
+    } else {
+        $browse_table .= $titles['NoBrowse'];
+    }
+    $browse_table .= '</a>';
+
+    $search_table = '<a href="tbl_select.php?' . $tbl_url_query . '">';
+    if ($may_have_rows) {
+        $search_table .= $titles['Search'];
+    } else {
+        $search_table .= $titles['NoSearch'];
+    }
+    $search_table .= '</a>';
+
+    $browse_table_label = '<a href="sql.php?' . $tbl_url_query . '&amp;pos=0">' . $truename . '</a>';
 
     if (! $db_is_information_schema) {
-        if (! empty($each_table['TABLE_ROWS'])) {
-            $empty_table = '<a class="truncate_table_anchor" href="sql.php?' . $tbl_url_query
-                 . '&amp;sql_query=';
-            $empty_table .= urlencode('TRUNCATE ' . PMA_backquote($each_table['TABLE_NAME']))
-                 . '&amp;message_to_show='
-                 . urlencode(sprintf(__('Table %s has been emptied'), htmlspecialchars($each_table['TABLE_NAME'])))
-                 .'">' . $titles['Empty'] . '</a>';
-        } else {
-            $empty_table = $titles['NoEmpty'];
+        $empty_table = '<a ';
+        if ($GLOBALS['cfg']['AjaxEnable']) {
+            $empty_table .= 'class="truncate_table_anchor"';
         }
+        $empty_table .= ' href="sql.php?' . $tbl_url_query
+             . '&amp;sql_query=';
+        $empty_table .= urlencode('TRUNCATE ' . PMA_backquote($each_table['TABLE_NAME']))
+             . '&amp;message_to_show='
+             . urlencode(sprintf(__('Table %s has been emptied'), htmlspecialchars($each_table['TABLE_NAME'])))
+             .'">';
+        if ($may_have_rows) {
+            $empty_table .= $titles['Empty'];
+        } else {
+            $empty_table .= $titles['NoEmpty'];
+        }
+        $empty_table .= '</a>';
+
         $drop_query = 'DROP '
             . ($table_is_view ? 'VIEW' : 'TABLE')
             . ' ' . PMA_backquote($each_table['TABLE_NAME']);
@@ -352,7 +385,7 @@ foreach ($tables as $keyname => $each_table) {
             <?php echo $titles['Insert']; ?></a></td>
     <td align="center"><?php echo $empty_table; ?></td>
     <td align="center">
-        <a class="drop_table_anchor" href="sql.php?<?php echo $tbl_url_query;
+    <a <?php echo ($GLOBALS['cfg']['AjaxEnable'] ? 'class="drop_table_anchor"' : ''); ?> href="sql.php?<?php echo $tbl_url_query;
             ?>&amp;reload=1&amp;purge=1&amp;sql_query=<?php
             echo urlencode($drop_query); ?>&amp;message_to_show=<?php
             echo urlencode($drop_message); ?>" >
@@ -492,23 +525,23 @@ $checkall_url = 'db_structure.php?' . PMA_generate_common_url($db);
 <?php
 echo '    <option value="' . __('With selected:') . '" selected="selected">'
      . __('With selected:') . '</option>' . "\n";
-echo '    <option value="' . __('Export') . '" >'
+echo '    <option value="export" >'
      . __('Export') . '</option>' . "\n";
-echo '    <option value="' . __('Print view') . '" >'
+echo '    <option value="print" >'
     . __('Print view') . '</option>' . "\n";
 
 if (!$db_is_information_schema) {
-    echo '    <option value="' . __('Empty') . '" >'
+    echo '    <option value="empty_tbl" >'
          . __('Empty') . '</option>' . "\n";
-    echo '    <option value="' . __('Drop') . '" >'
+    echo '    <option value="drop_tbl" >'
          . __('Drop') . '</option>' . "\n";
-    echo '    <option value="' . __('Check table') . '" >'
+    echo '    <option value="check_tbl" >'
          . __('Check table') . '</option>' . "\n";
-    echo '    <option value="' . __('Optimize table') . '" >'
+    echo '    <option value="optimize_tbl" >'
          . __('Optimize table') . '</option>' . "\n";
-    echo '    <option value="' . __('Repair table') . '" >'
+    echo '    <option value="repair_tbl" >'
          . __('Repair table') . '</option>' . "\n";
-    echo '    <option value="' . __('Analyze table') . '" >'
+    echo '    <option value="analyze_tbl" >'
          . __('Analyze table') . '</option>' . "\n";
 }
 ?>
@@ -528,6 +561,7 @@ if (!$db_is_information_schema) {
 // display again the table list navigator
 PMA_listNavigator($total_num_tables, $pos, $_url_params, 'db_structure.php', 'frame_content', $GLOBALS['cfg']['MaxTableList']);
 ?>
+</div>
 <hr />
 
 <?php

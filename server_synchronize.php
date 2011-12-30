@@ -253,22 +253,18 @@ if ((isset($_REQUEST['submit_connect']))) {
             */
             echo '<form name="synchronize_form" id="synchronize_form" method="post" action="server_synchronize.php">'
             . PMA_generate_common_hidden_inputs('', '');
-            echo '<table id="serverstatustraffic" class="data" width = "60%">
+            echo '<table id="serverstatustraffic" class="data" width = "40%">
             <tr>
-            <td> <h2>'
-            . ($GLOBALS['cfg']['MainPageIconic']
-            ? '<img class="icon" src="' . $pmaThemeImage . 'new_struct.jpg" width="32"'
+            <td>'
+            . '<img class="icon" src="' . $pmaThemeImage . 'new_struct.jpg" width="32"'
             . ' height="32" alt="" />'
-            : '')
             . __('Structure Synchronization')
-            .'</h2>' .'</td>';
-            echo '<td> <h2>'
-            . ($GLOBALS['cfg']['MainPageIconic']
-            ? '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="32"'
+            .'</td>';
+            echo '<td>'
+            . '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="32"'
             . ' height="32" alt="" />'
-            : '')
             . __('Data Synchronization')
-            . '</h2>' .'</td>';
+            . '</td>';
             echo '</tr>
             </table>';
 
@@ -277,6 +273,7 @@ if ((isset($_REQUEST['submit_connect']))) {
             */
             PMA_syncDisplayHeaderSource($src_db);
             $odd_row = false;
+
             /**
             * Display the matching tables' names and difference, first
             */
@@ -339,8 +336,8 @@ if ((isset($_REQUEST['submit_connect']))) {
                 */
                 if (($num_alter_cols > 0) || ($num_insert_cols > 0) || ($num_remove_cols > 0) || ($num_add_index > 0) || ($num_remove_index > 0)) {
 
-                   echo '<img class="icon" src="' . $pmaThemeImage . 'new_struct.jpg" width="29"  height="29"
-                   alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                   echo '<img class="icon struct_img" src="' . $pmaThemeImage . 'new_struct.jpg" width="29"  height="29"
+                   alt="' . __('Click to select') . '"
                    onclick="showDetails(' . "'MS" . $i . "','" . $num_alter_cols . "','" .$num_insert_cols .
                    "','" . $num_remove_cols . "','" . $num_add_index . "','" . $num_remove_index . "'"
                    . ', this ,' . "'" . htmlspecialchars($matching_tables[$i]) . "'" . ')"/>';
@@ -351,8 +348,8 @@ if ((isset($_REQUEST['submit_connect']))) {
                 if (isset($update_array[$i]) || isset($insert_array[$i])) {
                     if (isset($update_array[$i][0][$matching_tables_keys[$i][0]]) || isset($insert_array[$i][0][$matching_tables_keys[$i][0]])) {
 
-                        echo '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
-                        alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                        echo '<img class="icon data_img" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
+                        alt="' . __('Click to select') . '"
                          onclick="showDetails('. "'MD" . $i . "','" . $num_of_updates . "','" . $num_of_insertions .
                          "','" . null . "','" . null . "','" . null . "'" . ', this ,' . "'" . htmlspecialchars($matching_tables[$i]) . "'" . ')" />';
                     }
@@ -367,15 +364,15 @@ if ((isset($_REQUEST['submit_connect']))) {
                 $odd_row = PMA_syncDisplayBeginTableRow($odd_row);
                 echo '<td> + ' . htmlspecialchars($source_tables_uncommon[$j]) . '</td> ';
 
-                echo '<td align="center"><img class="icon" src="' . $pmaThemeImage .  'new_struct.jpg" width="29"  height="29"
-                alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                echo '<td align="center"><img class="icon struct_img" src="' . $pmaThemeImage .  'new_struct.jpg" width="29"  height="29"
+                alt="' . __('Click to select') . '"
                 onclick="showDetails(' . "'US" . $j . "','" . null . "','" . null . "','" . null . "','" . null . "','" . null . "'" . ', this ,'
                 . "'" . htmlspecialchars($source_tables_uncommon[$j]) . "'" . ')"/>';
 
                 if ($row_count[$j] > 0)
                 {
-                    echo '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
-                    alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                    echo '<img class="icon data_img" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
+                    alt="' . __('Click to select') . '"
                     onclick="showDetails(' . "'UD" . $j . "','" . null . "','" . $row_count[$j] . "','" . null .
                     "','" . null . "','" . null . "'" . ', this ,' . "'" . htmlspecialchars($source_tables_uncommon[$j]) . "'" . ')" />';
                 }
@@ -733,8 +730,8 @@ if (isset($_REQUEST['Table_ids'])) {
         }
 
         if (($num_alter_cols > 0) || ($num_insert_cols > 0) || ($num_remove_cols > 0) || ($num_add_index > 0) || ($num_remove_index > 0)) {
-            echo '<img class="icon" src="' . $pmaThemeImage .  'new_struct.jpg" width="29"  height="29"
-            alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+            echo '<img class="icon struct_img" src="' . $pmaThemeImage .  'new_struct.jpg" width="29"  height="29"
+            alt="' . __('Click to select') . '" 
             onclick="showDetails(' . "'MS" . $i . "','" . $num_alter_cols . "','" . $num_insert_cols . "','" . $num_remove_cols . "','" . $num_add_index . "','" . $num_remove_index . "'" .',
             this ,' . "'" . htmlspecialchars($matching_tables[$i]) . "'" . ')"/>';
         }
@@ -761,8 +758,8 @@ if (isset($_REQUEST['Table_ids'])) {
 
             if ((isset($matching_tables_keys[$i][0]) && isset($update_array[$i][0][$matching_tables_keys[$i][0]]))
                 || (isset($matching_tables_keys[$i][0]) && isset($insert_array[$i][0][$matching_tables_keys[$i][0]]))) {
-                echo '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
-                alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                echo '<img class="icon data_img" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
+                alt="' . __('Click to select') . '"
                 onclick="showDetails(' . "'MD" . $i . "','" . $num_of_updates . "','" . $num_of_insertions .
                 "','" . null . "','" . null . "','" . null . "'" .', this ,' . "'" . htmlspecialchars($matching_tables[$i]) . "'" . ')" />';
             }
@@ -789,8 +786,8 @@ if (isset($_REQUEST['Table_ids'])) {
         */
         if (!(in_array($j, $uncommon_table_structure_diff))) {
             if (isset($uncommon_tables[$j])) {
-                echo '<img class="icon" src="' . $pmaThemeImage  . 'new_struct.jpg" width="29"  height="29"
-                alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                echo '<img class="icon struct_img" src="' . $pmaThemeImage  . 'new_struct.jpg" width="29"  height="29"
+                alt="' . __('Click to select') . '"
                 onclick="showDetails(' . "'US" . $j . "','" . null . "','" . null . "','" . null . "','" . null . "','" . null . "'" . ', this ,' . "'" . htmlspecialchars($source_tables_uncommon[$j]) . "'" . ')"/>' .' ';
             }
         } else {
@@ -801,8 +798,8 @@ if (isset($_REQUEST['Table_ids'])) {
         */
         if (!(in_array($j, $uncommon_table_data_diff))) {
             if (isset($row_count[$j]) && ($row_count > 0)) {
-                echo '<img class="icon" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
-                alt="' . __('Click to select') . '" onmouseover="change_Image(this);" onmouseout="change_Image(this);"
+                echo '<img class="icon data_img" src="' . $pmaThemeImage . 'new_data.jpg" width="29" height="29"
+                alt="' . __('Click to select') . '" 
                 onclick="showDetails(' . "'UD" . $j . "','" . null ."','" . $row_count[$j] ."','"
                 . null . "','" . null . "','" . null . "'" . ', this ,' . "'". htmlspecialchars($source_tables_uncommon[$j]) . "'" . ')" />';
             }
@@ -1021,8 +1018,8 @@ if (isset($_REQUEST['synchronize_db'])) {
         if (isset($alter_str_array[$p])) {
             PMA_alterTargetTableStructure($trg_db, $trg_link, $matching_tables, $source_columns, $alter_str_array, $matching_tables_fields,
             $criteria, $matching_tables_keys, $target_tables_keys, $p, true);
-            unset($alter_str_array[$p]);        
-        }                                                           
+            unset($alter_str_array[$p]);
+        }
         if (! empty($add_column_array[$p])) {
             PMA_findDeleteRowsFromTargetTables($delete_array, $matching_tables, $p, $target_tables_keys, $matching_tables_keys,
             $trg_db, $trg_link, $src_db, $src_link);
@@ -1103,23 +1100,44 @@ if (isset($_REQUEST['synchronize_db'])) {
     $databases = PMA_DBI_get_databases_full(null, false, null, 'SCHEMA_NAME',
         'ASC', 0, true);
 
+    $databases_to_hide = array(
+        'information_schema',
+        'mysql'
+        );
+
+    if ($GLOBALS['cfg']['AllowArbitraryServer'] === false) {
+        $possibly_readonly = ' readonly="readonly"';
+    } else {
+        $possibly_readonly = '';
+    }
+
     foreach ($cons as $type) {
         if ('src' == $type) {
             $database_header = __('Source database');
         } else {
             $database_header = __('Target database');
         }
+
+        $database_header .= PMA_showHint(PMA_sanitize(sprintf('%sAllowArbitraryServer%s', '[a@./Documentation.html#AllowArbitraryServer@_blank]', '[/a]')));
 ?>
       <table id="serverconnection_<?php echo $type; ?>_remote" class="data">
-      <tr>
-	  <th colspan="2"><?php echo $database_header; ?></th>
-      </tr>
+      <caption class="tblHeaders"><?php echo $database_header; ?></caption>
       <tr class="odd">
 	  <td colspan="2" style="text-align: center">
 	     <select name="<?php echo $type; ?>_type" id="<?php echo $type; ?>_type" class="server_selector">
-	      <option value="rmt"><?php echo __('Enter manually'); ?></option>
-	      <option value="cur"><?php echo __('Current connection'); ?></option>
 <?php
+        if ($GLOBALS['cfg']['AllowArbitraryServer']) {
+            $preselected_option = 'rmt';
+            echo '<option value="rmt" selected="selected">' . __('Enter manually') . '</option>';
+        } else {
+            $preselected_option = 'cur';
+        }
+        echo '<option value="cur"';
+        if ('cur' == $preselected_option) {
+            echo ' selected="selected"';
+        }
+        echo '>' .  __('Current connection') . '</option>';
+
         foreach ($GLOBALS['cfg']['Servers'] as $key => $tmp_server) {
             if (empty($tmp_server['host'])) {
                 continue;
@@ -1146,55 +1164,57 @@ if (isset($_REQUEST['synchronize_db'])) {
             $value .= $tmp_server['user'];
             $value .= '||||';
             $value .= $tmp_server['only_db'];
-            echo '<option value="' . $value . '">'
-                . htmlspecialchars(sprintf(__('Configuration: %s'), $label)) . '</option>' . "\n";
+            echo '<option value="' . $value . '" >'
+                . htmlspecialchars(sprintf(__('Configuration: %s'), $label)) . '</option>';
         } // end foreach
 ?>
 	     </select>
 	  </td>
       </tr>
 	<tr class="even toggler remote-server">
-	    <td><?php echo __('Host'); ?></td>
-	    <td><input type="text" name="<?php echo $type; ?>_host" class="server-host" /></td>
+	    <td><?php echo __('Server'); ?></td>
+        <td><input type="text" name="<?php echo $type; ?>_host" class="server-host" <?php echo $possibly_readonly; ?>/></td>
 	</tr>
 	<tr class="odd toggler remote-server">
 	    <td><?php echo __('Port'); ?></td>
-	    <td><input type="text" name="<?php echo $type; ?>_port" class="server-port" value="3306" maxlength="5" size="5" /></td>
+        <td><input type="text" name="<?php echo $type; ?>_port" class="server-port" <?php echo $possibly_readonly; ?> value="3306" maxlength="5" size="5" /></td>
 	</tr>
 	<tr class="even toggler remote-server">
 	    <td><?php echo __('Socket'); ?></td>
-	    <td><input type="text" name="<?php echo $type; ?>_socket" class="server-socket" /></td>
+        <td><input type="text" name="<?php echo $type; ?>_socket" class="server-socket" <?php echo $possibly_readonly; ?>/></td>
 	</tr>
 	<tr class="odd toggler remote-server">
 	    <td><?php echo __('User name'); ?></td>
-	    <td><input type="text" name="<?php echo $type; ?>_username" class="server-user" /></td>
+        <td><input type="text" name="<?php echo $type; ?>_username" class="server-user" /></td>
 	</tr>
 	<tr class="even toggler remote-server">
 	    <td><?php echo __('Password'); ?></td>
-	    <td><input type="password" name="<?php echo $type; ?>_pass" class="server-pass" /> </td>
+        <td><input type="password" name="<?php echo $type; ?>_pass" class="server-pass" /> </td>
 	</tr>
 	<tr class="odd toggler remote-server">
 	    <td><?php echo __('Database'); ?></td>
-	    <td><input type="text" name="<?php echo $type; ?>_db" class="server-db" /></td>
+        <td><input type="text" name="<?php echo $type; ?>_db" class="server-db" /></td>
 	</tr>
 	<tr class="even toggler current-server" style="display: none;">
 	    <td><?php echo __('Database'); ?></td>
 	    <td>
 <?php
-      // these unset() do not complain if the elements do not exist
-    unset($databases['mysql']);
-    unset($databases['information_schema']);
+    $options_list = '';
+    foreach ($databases as $array_key => $db) {
+        if (in_array($db['SCHEMA_NAME'], $databases_to_hide)) {
+            unset($databases[$array_key]);
+        } else {
+            $options_list .= '<option>' . htmlspecialchars($db['SCHEMA_NAME']) . '</option>';
+        }
+    }
 
 	if (count($databases) == 0) {
 		echo __('No databases');
 	} else {
-		echo '
-	      	<select name="' . $type . '_db_sel">
-		';
-		foreach ($databases as $db) {
-            echo '		<option>' . htmlspecialchars($db['SCHEMA_NAME']) . '</option>';
-		}
-        echo '</select>';
+		echo '<select name="' . $type . '_db_sel">'
+         . $options_list
+         . '</select>';
+        unset($options_list);
 	}
 	echo '</td> </tr>
       </table>';

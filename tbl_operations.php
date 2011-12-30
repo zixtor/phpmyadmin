@@ -64,6 +64,20 @@ $reread_info = false;
 $table_alters = array();
 
 /**
+ * If the table has to be moved to some other database
+ */
+if(isset($_REQUEST['submit_move']) || isset($_REQUEST['submit_copy'])) {
+    $_message = '';
+    require_once './tbl_move_copy.php';
+}
+/**
+ * If the table has to be maintained
+ */
+if(isset($_REQUEST['table_maintenance'])) {
+    require_once './sql.php';
+    unset($result);
+}
+/**
  * Updates table comment, type and options if required
  */
 if (isset($_REQUEST['submitoptions'])) {
@@ -214,7 +228,7 @@ if (isset($result) && empty($message_to_show)) {
     if (! empty($warning_messages)) {
         $_message = new PMA_Message;
         $_message->addMessages($warning_messages);
-        $_message->isWarning(true);
+        $_message->isError(true);
         unset($warning_messages);
     }
     PMA_showMessage($_message, $sql_query, $_type);
@@ -239,7 +253,7 @@ unset($local_query);
  */
 ?>
 <!-- Order the table -->
-<div id="div_table_order">
+<div class="operations_half_width">
 <form method="post" action="tbl_operations.php">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <fieldset id="fieldset_table_order">
@@ -265,8 +279,8 @@ unset($columns);
 </div>
 
 <!-- Move table -->
-<div id="div_table_rename">
-<form method="post" action="tbl_move_copy.php"
+<div class="operations_half_width">
+<form method="post" action="tbl_operations.php"
     onsubmit="return emptyFormElements(this, 'new_name')">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <input type="hidden" name="reload" value="1" />
@@ -325,7 +339,7 @@ if (strstr($show_comment, '; InnoDB free') === false) {
 ?>
 
 <!-- Table options -->
-<div id="div_table_options">
+<div class="operations_half_width clearfloat">
 <form method="post" action="tbl_operations.php">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <input type="hidden" name="reload" value="1" />
@@ -504,8 +518,8 @@ if (isset($possible_row_formats[$tbl_type])) {
 </div>
 
 <!-- Copy table -->
-<div id="div_table_copy">
-<form method="post" action="tbl_move_copy.php"
+<div class="operations_half_width">
+<form method="post" action="tbl_operations.php"
     onsubmit="return emptyFormElements(this, 'new_name')">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <input type="hidden" name="reload" value="1" />
@@ -567,7 +581,7 @@ if (isset($possible_row_formats[$tbl_type])) {
 
 <br class="clearfloat"/>
 
-<div id="div_table_maintenance">
+<div class="operations_half_width">
 <fieldset>
  <legend><?php echo __('Table maintenance'); ?></legend>
 
@@ -577,9 +591,12 @@ if (isset($possible_row_formats[$tbl_type])) {
 if ($is_myisam_or_aria || $is_innodb || $is_berkeleydb) {
     if ($is_myisam_or_aria || $is_innodb) {
         $this_url_params = array_merge($url_params,
-            array('sql_query' => 'CHECK TABLE ' . PMA_backquote($GLOBALS['table'])));
+            array(
+                'sql_query' => 'CHECK TABLE ' . PMA_backquote($GLOBALS['table']),
+                'table_maintenance' => 'Go',
+                ));
         ?>
-    <li><a href="sql.php<?php echo PMA_generate_common_url($this_url_params); ?>">
+    <li><a href="tbl_operations.php<?php echo PMA_generate_common_url($this_url_params); ?>">
             <?php echo __('Check table'); ?></a>
         <?php echo PMA_showMySQLDocu('MySQL_Database_Administration', 'CHECK_TABLE'); ?>
     </li>
@@ -597,9 +614,12 @@ if ($is_myisam_or_aria || $is_innodb || $is_berkeleydb) {
     }
     if ($is_myisam_or_aria || $is_berkeleydb) {
         $this_url_params = array_merge($url_params,
-            array('sql_query' => 'ANALYZE TABLE ' . PMA_backquote($GLOBALS['table'])));
+            array(
+                'sql_query' => 'ANALYZE TABLE ' . PMA_backquote($GLOBALS['table']),
+                'table_maintenance' => 'Go',
+                ));
         ?>
-    <li><a href="sql.php<?php echo PMA_generate_common_url($this_url_params); ?>">
+    <li><a href="tbl_operations.php<?php echo PMA_generate_common_url($this_url_params); ?>">
             <?php echo __('Analyze table'); ?></a>
         <?php echo PMA_showMySQLDocu('MySQL_Database_Administration', 'ANALYZE_TABLE');?>
     </li>
@@ -607,9 +627,12 @@ if ($is_myisam_or_aria || $is_innodb || $is_berkeleydb) {
     }
     if ($is_myisam_or_aria) {
         $this_url_params = array_merge($url_params,
-            array('sql_query' => 'REPAIR TABLE ' . PMA_backquote($GLOBALS['table'])));
+            array(
+                'sql_query' => 'REPAIR TABLE ' . PMA_backquote($GLOBALS['table']),
+                'table_maintenance' => 'Go',
+                ));
         ?>
-    <li><a href="sql.php<?php echo PMA_generate_common_url($this_url_params); ?>">
+    <li><a href="tbl_operations.php<?php echo PMA_generate_common_url($this_url_params); ?>">
             <?php echo __('Repair table'); ?></a>
         <?php echo PMA_showMySQLDocu('MySQL_Database_Administration', 'REPAIR_TABLE'); ?>
     </li>
@@ -617,9 +640,12 @@ if ($is_myisam_or_aria || $is_innodb || $is_berkeleydb) {
     }
     if ($is_myisam_or_aria || $is_innodb || $is_berkeleydb) {
         $this_url_params = array_merge($url_params,
-            array('sql_query' => 'OPTIMIZE TABLE ' . PMA_backquote($GLOBALS['table'])));
+            array(
+                'sql_query' => 'OPTIMIZE TABLE ' . PMA_backquote($GLOBALS['table']),
+                'table_maintenance' => 'Go',
+                ));
         ?>
-    <li><a href="sql.php<?php echo PMA_generate_common_url($this_url_params); ?>">
+    <li><a href="tbl_operations.php<?php echo PMA_generate_common_url($this_url_params); ?>">
             <?php echo __('Optimize table'); ?></a>
         <?php echo PMA_showMySQLDocu('MySQL_Database_Administration', 'OPTIMIZE_TABLE'); ?>
     </li>
@@ -642,7 +668,7 @@ $this_url_params = array_merge($url_params,
 </fieldset>
 </div>
 <?php if (! (isset($db_is_information_schema) && $db_is_information_schema)) { ?>
-<div id="div_table_removal">
+<div class="operations_half_width">
 <fieldset class="caution">
  <legend><?php echo __('Delete data or table'); ?></legend>
 
@@ -673,7 +699,7 @@ if (! (isset($db_is_information_schema) && $db_is_information_schema)) {
             'reload' => '1',
             'purge' => '1',
             'message_to_show' => sprintf(($tbl_is_view ? __('View %s has been dropped') : __('Table %s has been dropped')), htmlspecialchars($table)),
-            // table name is needed to avoid running 
+            // table name is needed to avoid running
             // PMA_relationsCleanupDatabase() on the whole db later
             'table' => $GLOBALS['table'],
         ));
@@ -691,12 +717,13 @@ if (! (isset($db_is_information_schema) && $db_is_information_schema)) {
 <?php
 }
 ?>
+<br class="clearfloat">
 <?php if (PMA_Partition::havePartitioning()) {
     $partition_names = PMA_Partition::getPartitionNames($db, $table);
     // show the Partition maintenance section only if we detect a partition
     if (! is_null($partition_names[0])) {
     ?>
-<div id="div_partition_maintenance">
+<div class="operations_half_width">
 <form method="post" action="tbl_operations.php">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <fieldset>
@@ -751,7 +778,7 @@ if ($cfgRelation['relwork'] && ! $is_innodb) {
     if ($foreign) {
         ?>
     <!-- Referential integrity check -->
-<div id="div_referential_integrity">
+<div class="operations_half_width">
 <fieldset>
  <legend><?php echo __('Check referential integrity:'); ?></legend>
     <ul>

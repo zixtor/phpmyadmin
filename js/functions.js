@@ -21,6 +21,18 @@ var only_once_elements = new Array();
 var ajax_message_init = false;
 
 /**
+ * Add a hidden field to the form to indicate that this will be an
+ * Ajax request (only if this hidden field does not exist)
+ *
+ * @param   object   the form
+ */
+function PMA_prepareForAjaxRequest($form) {
+    if (! $form.find('input:hidden').is('#ajax_request_hidden')) {
+        $form.append('<input type="hidden" id="ajax_request_hidden" name="ajax_request" value="true" />');
+    }
+}
+
+/**
  * Generate a new password and copy it to the password input areas
  *
  * @param   object   the form that holds the password fields
@@ -45,7 +57,56 @@ function suggestPassword(passwd_form) {
 }
 
 /**
- * for libraries/display_change_password.lib.php 
+ * Version string to integer conversion.
+ */
+function parseVersionString (str) {
+    if (typeof(str) != 'string') { return false; }
+    var add = 0;
+    // Parse possible alpha/beta/rc/
+    var state = str.split('-');
+    if (state.length >= 2) {
+        if (state[1].substr(0, 2) == 'rc') {
+            add = - 20 - parseInt(state[1].substr(2));
+        } else if (state[1].substr(0, 4) == 'beta') {
+            add =  - 40 - parseInt(state[1].substr(4));
+        } else if (state[1].substr(0, 5) == 'alpha') {
+            add =  - 60 - parseInt(state[1].substr(5));
+        } else if (state[1].substr(0, 3) == 'dev') {
+            /* We don't handle dev, it's git snapshot */
+            add = 0;
+        }
+    }
+    // Parse version
+    var x = str.split('.');
+    // Use 0 for non existing parts
+    var maj = parseInt(x[0]) || 0;
+    var min = parseInt(x[1]) || 0;
+    var pat = parseInt(x[2]) || 0;
+    var hotfix = parseInt(x[3]) || 0;
+    return  maj * 100000000 + min * 1000000 + pat * 10000 + hotfix * 100 + add;
+}
+
+/**
+ * Indicates current available version on main page.
+ */
+function PMA_current_version() {
+    var current = parseVersionString(pmaversion);
+    var latest = parseVersionString(PMA_latest_version);
+    $('#li_pma_version').append(PMA_messages['strLatestAvailable'] + ' ' + PMA_latest_version);
+    if (latest > current) {
+        var message = $.sprintf(PMA_messages['strNewerVersion'], PMA_latest_version, PMA_latest_date);
+        if (Math.floor(latest / 10000) == Math.floor(current / 10000)) {
+            /* Security update */
+            klass = 'error';
+        } else {
+            klass = 'notice';
+        }
+        $('#maincontainer').after('<div class="' + klass + '">' + message + '</div>');
+    }
+}
+
+/**
+ * for libraries/display_change_password.lib.php
  *     libraries/user_password.php
  *
  */
@@ -55,6 +116,37 @@ function displayPasswordGenerateButton() {
     $('#div_element_before_generate_password').parent().append('<div class="item"><label for="button_generate_password">' + PMA_messages['strGeneratePassword'] + ':</label><span class="options"><input type="button" id="button_generate_password" value="' + PMA_messages['strGenerate'] + '" onclick="suggestPassword(this.form)" /></span><input type="text" name="generated_pw" id="generated_pw" /></div>');
 }
 
+/*
+ * Adds a date/time picker to an element
+ *
+ * @param   object  $this_element   a jQuery object pointing to the element
+ */
+function PMA_addDatepicker($this_element) {
+    var showTimeOption = false;
+    if ($this_element.is('.datetimefield')) {
+        showTimeOption = true;
+    }
+
+    $this_element
+        .datepicker({
+        showOn: 'button',
+        buttonImage: themeCalendarImage, // defined in js/messages.php
+        buttonImageOnly: true,
+        duration: '',
+        time24h: true,
+        stepMinutes: 1,
+        stepHours: 1,
+        showTime: showTimeOption,
+        dateFormat: 'yy-mm-dd', // yy means year with four digits
+        altTimeField: '',
+        beforeShow: function(input, inst) {
+            // Remember that we came from the datepicker; this is used
+            // in tbl_change.js by verificationsAfterFieldChange()
+            $this_element.data('comes_from', 'datepicker');
+        },
+        constrainInput: false
+     });
+}
 
 /**
  * selects the content of a given object, f.e. a textarea
@@ -80,32 +172,7 @@ function selectContent( element, lock, only_once ) {
 }
 
 /**
- * Displays a confirmation box before submitting a "DROP DATABASE" query.
- * This function is called while clicking links
- *
- * @param   object   the link
- * @param   object   the sql query to submit
- *
- * @return  boolean  whether to run the query or not
- */
-function confirmLinkDropDB(theLink, theSqlQuery)
-{
-    // Confirmation is not required in the configuration file
-    // or browser is Opera (crappy js implementation)
-    if (PMA_messages['strDoYouReally'] == '' || typeof(window.opera) != 'undefined') {
-        return true;
-    }
-
-    var is_confirmed = confirm(PMA_messages['strDropDatabaseStrongWarning'] + '\n' + PMA_messages['strDoYouReally'] + ' :\n' + theSqlQuery);
-    if (is_confirmed) {
-        theLink.href += '&is_js_confirmed=1';
-    }
-
-    return is_confirmed;
-} // end of the 'confirmLinkDropDB()' function
-
-/**
- * Displays a confirmation box before to submit a "DROP/DELETE/ALTER" query.
+ * Displays a confirmation box before submitting a "DROP/DELETE/ALTER" query.
  * This function is called while clicking links
  *
  * @param   object   the link
@@ -325,328 +392,6 @@ function checkSqlQuery(theForm)
     return true;
 } // end of the 'checkSqlQuery()' function
 
-// Global variable row_class is set to even
-var row_class = 'even';
-
-/**
-* Generates a row dynamically in the differences table displaying
-* the complete statistics of difference in  table like number of
-* rows to be updated, number of rows to be inserted, number of
-* columns to be added, number of columns to be removed, etc.
-*
-* @param  index         index of matching table
-* @param  update_size   number of rows/column to be updated
-* @param  insert_size   number of rows/coulmns to be inserted
-* @param  remove_size   number of columns to be removed
-* @param  insert_index  number of indexes to be inserted
-* @param  remove_index  number of indexes to be removed
-* @param  img_obj       image object
-* @param  table_name    name of the table
-*/
-
-function showDetails(i, update_size, insert_size, remove_size, insert_index, remove_index, img_obj, table_name)
-{
-    // The path of the image is split to facilitate comparison
-    var relative_path = (img_obj.src).split("themes/");
-
-    // The image source is changed when the showDetails function is called.
-    if (relative_path[1] == 'original/img/new_data_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_data_selected_hovered.jpg";
-        img_obj.alt = PMA_messages['strClickToUnselect'];  //only for IE browser
-    } else if (relative_path[1] == 'original/img/new_struct_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_struct_selected_hovered.jpg";
-        img_obj.alt = PMA_messages['strClickToUnselect'];
-    } else if (relative_path[1] == 'original/img/new_struct_selected_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_struct_hovered.jpg";
-        img_obj.alt = PMA_messages['strClickToSelect'];
-    } else if (relative_path[1] == 'original/img/new_data_selected_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_data_hovered.jpg";
-        img_obj.alt = PMA_messages['strClickToSelect'];
-    }
-
-    var div = document.getElementById("list");
-    var table = div.getElementsByTagName("table")[0];
-    var table_body = table.getElementsByTagName("tbody")[0];
-
-    //Global variable row_class is being used
-    if (row_class == 'even') {
-        row_class = 'odd';
-    } else {
-        row_class = 'even';
-    }
-    // If the red or green button against a table name is pressed then append a new row to show the details of differences of this table.
-    if ((relative_path[1] != 'original/img/new_struct_selected_hovered.jpg') && (relative_path[1] != 'original/img/new_data_selected_hovered.jpg')) {
-
-        var newRow = document.createElement("tr");
-        newRow.setAttribute("class", row_class);
-        newRow.className = row_class;
-        // Id assigned to this row element is same as the index of this table name in the  matching_tables/source_tables_uncommon array
-        newRow.setAttribute("id" , i);
-
-        var table_name_cell = document.createElement("td");
-        table_name_cell.align = "center";
-        table_name_cell.innerHTML = table_name ;
-
-        newRow.appendChild(table_name_cell);
-
-        var create_table = document.createElement("td");
-        create_table.align = "center";
-
-        var add_cols = document.createElement("td");
-        add_cols.align = "center";
-
-        var remove_cols = document.createElement("td");
-        remove_cols.align = "center";
-
-        var alter_cols = document.createElement("td");
-        alter_cols.align = "center";
-
-        var add_index = document.createElement("td");
-        add_index.align = "center";
-
-        var delete_index = document.createElement("td");
-        delete_index.align = "center";
-
-        var update_rows = document.createElement("td");
-        update_rows.align = "center";
-
-        var insert_rows = document.createElement("td");
-        insert_rows.align = "center";
-
-        var tick_image = document.createElement("img");
-        tick_image.src = "./themes/original/img/s_success.png";
-
-        if (update_size == '' && insert_size == '' && remove_size == '') {
-          /**
-          This is the case when the table needs to be created in target database.
-          */
-            create_table.appendChild(tick_image);
-            add_cols.innerHTML = "--";
-            remove_cols.innerHTML = "--";
-            alter_cols.innerHTML = "--";
-            delete_index.innerHTML = "--";
-            add_index.innerHTML = "--";
-            update_rows.innerHTML = "--";
-            insert_rows.innerHTML = "--";
-
-            newRow.appendChild(create_table);
-            newRow.appendChild(add_cols);
-            newRow.appendChild(remove_cols);
-            newRow.appendChild(alter_cols);
-            newRow.appendChild(delete_index);
-            newRow.appendChild(add_index);
-            newRow.appendChild(update_rows);
-            newRow.appendChild(insert_rows);
-
-        } else if (update_size == '' && remove_size == '') {
-           /**
-           This is the case when data difference is displayed in the
-           table which is present in source but absent from target database
-          */
-            create_table.innerHTML = "--";
-            add_cols.innerHTML = "--";
-            remove_cols.innerHTML = "--";
-            alter_cols.innerHTML = "--";
-            add_index.innerHTML = "--";
-            delete_index.innerHTML = "--";
-            update_rows.innerHTML = "--";
-            insert_rows.innerHTML = insert_size;
-
-            newRow.appendChild(create_table);
-            newRow.appendChild(add_cols);
-            newRow.appendChild(remove_cols);
-            newRow.appendChild(alter_cols);
-            newRow.appendChild(delete_index);
-            newRow.appendChild(add_index);
-            newRow.appendChild(update_rows);
-            newRow.appendChild(insert_rows);
-
-        } else if (remove_size == '') {
-            /**
-             This is the case when data difference between matching_tables is displayed.
-            */
-            create_table.innerHTML = "--";
-            add_cols.innerHTML = "--";
-            remove_cols.innerHTML = "--";
-            alter_cols.innerHTML = "--";
-            add_index.innerHTML = "--";
-            delete_index.innerHTML = "--";
-            update_rows.innerHTML = update_size;
-            insert_rows.innerHTML = insert_size;
-
-            newRow.appendChild(create_table);
-            newRow.appendChild(add_cols);
-            newRow.appendChild(remove_cols);
-            newRow.appendChild(alter_cols);
-            newRow.appendChild(delete_index);
-            newRow.appendChild(add_index);
-            newRow.appendChild(update_rows);
-            newRow.appendChild(insert_rows);
-
-        } else {
-            /**
-            This is the case when structure difference between matching_tables id displayed
-            */
-            create_table.innerHTML = "--";
-            add_cols.innerHTML = insert_size;
-            remove_cols.innerHTML = remove_size;
-            alter_cols.innerHTML = update_size;
-            delete_index.innerHTML = remove_index;
-            add_index.innerHTML = insert_index;
-            update_rows.innerHTML = "--";
-            insert_rows.innerHTML = "--";
-
-            newRow.appendChild(create_table);
-            newRow.appendChild(add_cols);
-            newRow.appendChild(remove_cols);
-            newRow.appendChild(alter_cols);
-            newRow.appendChild(delete_index);
-            newRow.appendChild(add_index);
-            newRow.appendChild(update_rows);
-            newRow.appendChild(insert_rows);
-        }
-        table_body.appendChild(newRow);
-
-    } else if ((relative_path[1] != 'original/img/new_struct_hovered.jpg') && (relative_path[1] != 'original/img/new_data_hovered.jpg')) {
-      //The case when the row showing the details need to be removed from the table i.e. the difference button is deselected now.
-        var table_rows = table_body.getElementsByTagName("tr");
-        var j;
-        var index = 0;
-        for (j=0; j < table_rows.length; j++)
-        {
-            if (table_rows[j].id == i) {
-                index = j;
-                table_rows[j].parentNode.removeChild(table_rows[j]);
-            }
-        }
-        //The table row css is being adjusted. Class "odd" for odd rows and "even" for even rows should be maintained.
-        for(index = 0; index < table_rows.length; index++)
-        {
-            row_class_element = table_rows[index].getAttribute('class');
-            if (row_class_element == "even") {
-                table_rows[index].setAttribute("class","odd");  // for Mozilla firefox
-                table_rows[index].className = "odd";            // for IE browser
-            } else {
-                table_rows[index].setAttribute("class","even"); // for Mozilla firefox
-                table_rows[index].className = "even";           // for IE browser
-            }
-        }
-    }
-}
-
-/**
- * Changes the image on hover effects
- *
- * @param   img_obj   the image object whose source needs to be changed
- *
- */
-function change_Image(img_obj)
-{
-     var relative_path = (img_obj.src).split("themes/");
-
-    if (relative_path[1] == 'original/img/new_data.jpg') {
-        img_obj.src = "./themes/original/img/new_data_hovered.jpg";
-    } else if (relative_path[1] == 'original/img/new_struct.jpg') {
-        img_obj.src = "./themes/original/img/new_struct_hovered.jpg";
-    } else if (relative_path[1] == 'original/img/new_struct_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_struct.jpg";
-    } else if (relative_path[1] == 'original/img/new_data_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_data.jpg";
-    } else if (relative_path[1] == 'original/img/new_data_selected.jpg') {
-        img_obj.src = "./themes/original/img/new_data_selected_hovered.jpg";
-    } else if(relative_path[1] == 'original/img/new_struct_selected.jpg') {
-        img_obj.src = "./themes/original/img/new_struct_selected_hovered.jpg";
-    } else if (relative_path[1] == 'original/img/new_struct_selected_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_struct_selected.jpg";
-    } else if (relative_path[1] == 'original/img/new_data_selected_hovered.jpg') {
-        img_obj.src = "./themes/original/img/new_data_selected.jpg";
-    }
-}
-
-/**
- * Generates the URL containing the list of selected table ids for synchronization and
- * a variable checked for confirmation of deleting previous rows from target tables
- *
- * @param   token   the token generated for each PMA form
- *
- */
-function ApplySelectedChanges(token)
-{
-    var div =  document.getElementById("list");
-    var table = div.getElementsByTagName('table')[0];
-    var table_body = table.getElementsByTagName('tbody')[0];
-    // Get all the rows from the details table
-    var table_rows = table_body.getElementsByTagName('tr');
-    var x = table_rows.length;
-    var i;
-    /**
-     Append the token at the beginning of the query string followed by
-    Table_ids that shows that "Apply Selected Changes" button is pressed
-    */
-    var append_string = "?token="+token+"&Table_ids="+1;
-    for(i=0; i<x; i++){
-           append_string += "&";
-           append_string += i+"="+table_rows[i].id;
-    }
-
-    // Getting the value of checkbox delete_rows
-    var checkbox = document.getElementById("delete_rows");
-    if (checkbox.checked){
-        append_string += "&checked=true";
-    } else {
-         append_string += "&checked=false";
-    }
-    //Appending the token and list of table ids in the URL
-    location.href += token;
-    location.href += append_string;
-}
-
-/**
-* Displays an error message if any text field
-* is left empty other than the port field.
-*
-* @param  string   the form name
-* @param  object   the form
-*
-* @return  boolean  whether the form field is empty or not
-*/
-function validateConnection(form_name, form_obj)
-{
-    var check = true;
-    var src_hostfilled = true;
-    var trg_hostfilled = true;
-
-    for (var i=1; i<form_name.elements.length; i++)
-    {
-        // All the text fields are checked excluding the port field because the default port can be used.
-        if ((form_name.elements[i].type == 'text') && (form_name.elements[i].name != 'src_port') && (form_name.elements[i].name != 'trg_port')) {
-            check = emptyFormElements(form_obj, form_name.elements[i].name);
-            if (check==false) {
-                element = form_name.elements[i].name;
-                if (form_name.elements[i].name == 'src_host') {
-                    src_hostfilled = false;
-                    continue;
-                }
-                if (form_name.elements[i].name == 'trg_host') {
-                    trg_hostfilled = false;
-                    continue;
-                }
-                if ((form_name.elements[i].name == 'src_socket' && src_hostfilled==false) || (form_name.elements[i].name == 'trg_socket' && trg_hostfilled==false))
-                    break;
-                else
-                    continue;
-            }
-        }
-    }
-    if (!check) {
-        form_obj.reset();
-        element.select();
-        alert(PMA_messages['strFormEmpty']);
-        element.focus();
-    }
-    return check;
-}
-
 /**
  * Check if a form's element is empty.
  * An element containing only spaces is also considered empty
@@ -776,6 +521,14 @@ function checkTableEditForm(theForm, fieldsCnt)
         return false;
     }
 
+    // at least this section is under jQuery
+    if ($("input.textfield[name='table']").val() == "") {
+        alert(PMA_messages['strFormEmpty']);
+        $("input.textfield[name='table']").focus();
+        return false;
+    }
+
+
     return true;
 } // enf of the 'checkTableEditForm()' function
 
@@ -845,17 +598,44 @@ function checkTransmitDump(theForm, theAction)
     return true;
 } // end of the 'checkTransmitDump()' function
 
-/**
- * Row marking in horizontal mode (use "live" so that it works also for 
- * next pages reached via AJAX); a tr may have the class noclick to remove
- * this behavior.
- */
 $(document).ready(function() {
-    $('tr.odd:not(.noclick), tr.even:not(.noclick)').live('click',function() {
+    /**
+     * Row marking in horizontal mode (use "live" so that it works also for
+     * next pages reached via AJAX); a tr may have the class noclick to remove
+     * this behavior.
+     */
+    $('tr.odd:not(.noclick), tr.even:not(.noclick)').live('click',function(e) {
+        // do not trigger when clicked on anchor
+        if ($(e.target).is('a, img, a *')) {
+            return;
+        }
+        // XXX: FF fires two click events for <label> (label and checkbox), so we need to handle this differently
         var $tr = $(this);
-        $tr.toggleClass('marked');
-        $tr.children().toggleClass('marked');
+        var $checkbox = $tr.find(':checkbox');
+        if ($checkbox.length) {
+            // checkbox in a row, add or remove class depending on checkbox state
+            var checked = $checkbox.attr('checked');
+            if (!$(e.target).is(':checkbox, label')) {
+                checked = !checked;
+                $checkbox.attr('checked', checked);
+            }
+            if (checked) {
+                $tr.addClass('marked');
+            } else {
+                $tr.removeClass('marked');
+            }
+        } else {
+            // normaln data table, just toggle class
+            $tr.toggleClass('marked');
+        }
     });
+
+    /**
+     * Add a date/time picker to each element that needs it
+     */
+    $('.datefield, .datetimefield').each(function() {
+        PMA_addDatepicker($(this));
+        });
 })
 
 /**
@@ -925,19 +705,13 @@ function setCheckboxes( container_id, state ) {
   *
   * @param   string   the form name
   * @param   string   the element name
-  * @param   boolean  whether to check or to uncheck the element
+  * @param   boolean  whether to check or to uncheck options
   *
   * @return  boolean  always true
   */
 function setSelectOptions(the_form, the_select, do_check)
 {
-
-    if( do_check ) {
-        $("form[name='"+ the_form +"']").find("select[name='"+the_select+"']").find("option").attr('selected', 'selected');
-    }
-    else {
-        $("form[name='"+ the_form +"']").find("select[name="+the_select+"]").find("option").removeAttr('selected');
-    }
+    $("form[name='"+ the_form +"'] select[name='"+the_select+"']").find("option").attr('selected', do_check);
     return true;
 } // end of the 'setSelectOptions()' function
 
@@ -969,19 +743,19 @@ function insertQuery(queryType) {
             valDis += "[value-" + NbSelect + "]";
             editDis += myListBox.options[i].value + "=[value-" + NbSelect + "]";
         }
-    if (queryType == "selectall") {
-        query = "SELECT * FROM `" + table + "` WHERE 1";
-    } else if (queryType == "select") {
-        query = "SELECT " + chaineAj + " FROM `" + table + "` WHERE 1";
-    } else if (queryType == "insert") {
-           query = "INSERT INTO `" + table + "`(" + chaineAj + ") VALUES (" + valDis + ")";
-    } else if (queryType == "update") {
-        query = "UPDATE `" + table + "` SET " + editDis + " WHERE 1";
-    } else if(queryType == "delete") {
-        query = "DELETE FROM `" + table + "` WHERE 1";
-    }
-    document.sqlform.sql_query.value = query;
-    sql_box_locked = false;
+        if (queryType == "selectall") {
+            query = "SELECT * FROM `" + table + "` WHERE 1";
+        } else if (queryType == "select") {
+            query = "SELECT " + chaineAj + " FROM `" + table + "` WHERE 1";
+        } else if (queryType == "insert") {
+               query = "INSERT INTO `" + table + "`(" + chaineAj + ") VALUES (" + valDis + ")";
+        } else if (queryType == "update") {
+            query = "UPDATE `" + table + "` SET " + editDis + " WHERE 1";
+        } else if(queryType == "delete") {
+            query = "DELETE FROM `" + table + "` WHERE 1";
+        }
+        document.sqlform.sql_query.value = query;
+        sql_box_locked = false;
     }
 }
 
@@ -1342,27 +1116,45 @@ function changeMIMEType(db, table, reference, mime_type)
  * Jquery Coding for inline editing SQL_QUERY
  */
 $(document).ready(function(){
-    var oldText,db,table,token,sql_query;
-    oldText=$(".inner_sql").html();
-    $("#inline_edit").click(function(){
-        db=$("input[name='db']").val();
-        table=$("input[name='table']").val();
-        token=$("input[name='token']").val();
-        sql_query=$("input[name='sql_query']").val();
-        $(".inner_sql").replaceWith("<textarea name=\"sql_query_edit\" id=\"sql_query_edit\">"+ sql_query +"</textarea><input type=\"button\" id=\"btnSave\" value=\"" + PMA_messages['strGo'] + "\"><input type=\"button\" id=\"btnDiscard\" value=\"" + PMA_messages['strCancel'] + "\">");
+    $(".inline_edit_sql").live('click', function(){
+        var server     = $(this).prev().find("input[name='server']").val();
+        var db         = $(this).prev().find("input[name='db']").val();
+        var table      = $(this).prev().find("input[name='table']").val();
+        var token      = $(this).prev().find("input[name='token']").val();
+        var sql_query  = $(this).prev().find("input[name='sql_query']").val();
+        var $inner_sql = $(this).parent().prev().find('.inner_sql');
+        var old_text   = $inner_sql.html();
+
+        var new_content = "<textarea name=\"sql_query_edit\" id=\"sql_query_edit\">" + sql_query + "</textarea>\n";
+        new_content    += "<input type=\"button\" class=\"btnSave\" value=\"" + PMA_messages['strGo'] + "\">\n";
+        new_content    += "<input type=\"button\" class=\"btnDiscard\" value=\"" + PMA_messages['strCancel'] + "\">\n";
+        $inner_sql.replaceWith(new_content);
+        $(".btnSave").each(function(){
+            $(this).click(function(){
+                sql_query = $(this).prev().val();
+                window.location.replace("import.php"
+                                      + "?server=" + encodeURIComponent(server)
+                                      + "&db=" + encodeURIComponent(db)
+                                      + "&table=" + encodeURIComponent(table)
+                                      + "&sql_query=" + encodeURIComponent(sql_query)
+                                      + "&show_query=1"
+                                      + "&token=" + token);
+            });
+        });
+        $(".btnDiscard").each(function(){
+            $(this).click(function(){
+                $(this).closest(".sql").html("<span class=\"syntax\"><span class=\"inner_sql\">" + old_text + "</span></span>");
+            });
+        });
         return false;
     });
 
-    $("#btnSave").live("click",function(){
-        window.location.replace("import.php?db=" + db +"&table=" + table + "&sql_query=" + $("#sql_query_edit").val()+"&show_query=1&token=" + token + "");
-    });
-
-    $("#btnDiscard").live("click",function(){
-        $(".sql").html("<span class=\"syntax\"><span class=\"inner_sql\">" + oldText + "</span></span>");
-    });
-
     $('.sqlbutton').click(function(evt){
-        insertQuery(evt.target.id);
+        if (evt.target.id == 'clear') {
+            $('#sqlquery').val('');
+        } else {
+            insertQuery(evt.target.id);
+        }
         return false;
     });
 
@@ -1417,31 +1209,6 @@ $(document).ready(function(){
 });
 
 /**
- * Function to process the plain HTML response from an Ajax request.  Inserts
- * the various HTML divisions from the response at the proper locations.  The
- * array relates the divisions to be inserted to their placeholders.
- *
- * @param   var divisions_map   an associative array of id names
- *
- * <code>
- * PMA_ajaxInsertResponse({'resultsTable':'resultsTable_response',
- *                         'profilingData':'profilingData_response'});
- * </code>
- *
- */
-
-function PMA_ajaxInsertResponse(divisions_map) {
-    $.each(divisions_map, function(key, value) {
-        var content_div = '#'+value;
-        var target_div = '#'+key;
-        var content = $(content_div).html();
-
-        //replace content of target_div with that from the response
-        $(target_div).html(content);
-    });
-};
-
-/**
  * Show a message on the top of the page for an Ajax request
  *
  * @param   var     message     string containing the message to be shown.
@@ -1488,9 +1255,9 @@ function PMA_ajaxShowMessage(message, timeout) {
             $('<span id="loading" class="ajax_notification"></span>')
             .appendTo("#loading_parent")
             .html(msg)
-            .slideDown('medium')
+            .fadeIn('medium')
             .delay(to)
-            .slideUp('medium', function(){
+            .fadeOut('medium', function(){
                 $(this)
                 .html("") //Clear the message
                 .hide();
@@ -1501,29 +1268,42 @@ function PMA_ajaxShowMessage(message, timeout) {
     else {
         //Otherwise, just show the div again after inserting the message
         $("#loading")
-        .clearQueue()
+        .stop(true, true)
         .html(msg)
-        .slideDown('medium')
+        .fadeIn('medium')
         .delay(to)
-        .slideUp('medium', function() {
+        .fadeOut('medium', function() {
             $(this)
             .html("")
             .hide();
         })
     }
+	
+	return $("#loading");
+}
+
+/**
+ * Removes the message shown for an Ajax operation when it's completed
+ */
+function PMA_ajaxRemoveMessage($this_msgbox) {
+    $this_msgbox
+     .stop(true, true)
+     .fadeOut('medium', function() {
+        $this_msgbox.hide();
+     });
 }
 
 /**
  * Hides/shows the "Open in ENUM/SET editor" message, depending on the data type of the column currently selected
  */
-function toggle_enum_notice(selectElement) {
+function PMA_showNoticeForEnum(selectElement) {
     var enum_notice_id = selectElement.attr("id").split("_")[1];
     enum_notice_id += "_" + (parseInt(selectElement.attr("id").split("_")[2]) + 1);
     var selectedType = selectElement.attr("value");
-    if(selectedType == "ENUM" || selectedType == "SET") {
+    if (selectedType == "ENUM" || selectedType == "SET") {
         $("p[id='enum_notice_" + enum_notice_id + "']").show();
     } else {
-          $("p[id='enum_notice_" + enum_notice_id + "']").hide();
+        $("p[id='enum_notice_" + enum_notice_id + "']").hide();
     }
 }
 
@@ -1627,7 +1407,7 @@ $(document).ready(function() {
      *
      * @uses    PMA_ajaxShowMessage()
      */
-    $("#create_table_form_minimal").live('submit', function(event) {
+    $("#create_table_form_minimal.ajax").live('submit', function(event) {
         event.preventDefault();
         $form = $(this);
 
@@ -1641,22 +1421,41 @@ $(document).ready(function() {
         // in the following function we need to use $(this)
         button_options[PMA_messages['strCancel']] = function() {$(this).dialog('close').remove();}
 
-        PMA_ajaxShowMessage();
-        if (! $form.find('input:hidden').is('#ajax_request_hidden')) {
-            $form.append('<input type="hidden" id="ajax_request_hidden" name="ajax_request" value="true" />');
-        }
+        var button_options_error = {};
+        button_options_error[PMA_messages['strOK']] = function() {$(this).dialog('close').remove();}
+
+        var $msgbox = PMA_ajaxShowMessage();
+        PMA_prepareForAjaxRequest($form);
 
         $.get($form.attr('action'), $form.serialize(), function(data) {
-            $('<div id="create_table_dialog"></div>')
-            .append(data)
-            .dialog({
-                title: PMA_messages['strCreateTable'],
-                width: 900,
-                buttons : button_options
-            }); // end dialog options
+            //in the case of an error, show the error message returned.
+            if (data.success != undefined && data.success == false) {
+                $('<div id="create_table_dialog"></div>')
+                .append(data.error)
+                .dialog({
+                    title: PMA_messages['strCreateTable'],
+                    height: 230,
+                    width: 900,
+                    open: PMA_verifyTypeOfAllColumns,
+                    buttons : button_options_error
+                })// end dialog options
+                //remove the redundant [Back] link in the error message.
+                .find('fieldset').remove();
+            } else {
+                $('<div id="create_table_dialog"></div>')
+                .append(data)
+                .dialog({
+                    title: PMA_messages['strCreateTable'],
+                    height: 600,
+                    width: 900,
+                    open: PMA_verifyTypeOfAllColumns,
+                    buttons : button_options
+                }); // end dialog options
+            }            
+            PMA_ajaxRemoveMessage($msgbox);
         }) // end $.get()
 
-        // empty table name and number of columns from the minimal form 
+        // empty table name and number of columns from the minimal form
         $form.find('input[name=table],input[name=num_fields]').val('');
     });
 
@@ -1676,68 +1475,91 @@ $(document).ready(function() {
          */
         var $form = $("#create_table_form");
 
-        PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
-        if (! $form.find('input:hidden').is('#ajax_request_hidden')) {
-            $form.append('<input type="hidden" id="ajax_request_hidden" name="ajax_request" value="true" />');
-        }
-        //User wants to submit the form
-        $.post($form.attr('action'), $form.serialize() + "&do_save_data=" + $(this).val(), function(data) {
-            if(data.success == true) {
-                PMA_ajaxShowMessage(data.message);
-                $("#create_table_dialog").dialog("close").remove();
+        /*
+         * First validate the form; if there is a problem, avoid submitting it
+         *
+         * checkTableEditForm() needs a pure element and not a jQuery object,
+         * this is why we pass $form[0] as a parameter (the jQuery object
+         * is actually an array of DOM elements)
+         */
 
-                /**
-                 * @var tables_table    Object referring to the <tbody> element that holds the list of tables
-                 */
-                var tables_table = $("#tablesForm").find("tbody").not("#tbl_summary_row");
-                // this is the first table created in this db
-                if (tables_table.length == 0) {
-                    if (window.parent && window.parent.frame_content) {
-                        window.parent.frame_content.location.reload();
+        if (checkTableEditForm($form[0], $form.find('input[name=orig_num_fields]').val())) {
+            // OK, form passed validation step
+            if ($form.hasClass('ajax')) {
+                PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
+                PMA_prepareForAjaxRequest($form);
+                //User wants to submit the form
+                $.post($form.attr('action'), $form.serialize() + "&do_save_data=" + $(this).val(), function(data) {
+                    if(data.success == true) {
+                        $('#properties_message')
+                         .removeClass('error')
+                         .html('');
+                        PMA_ajaxShowMessage(data.message);
+                        // Only if the create table dialog (distinct panel) exists
+                        if ($("#create_table_dialog").length > 0) {
+                            $("#create_table_dialog").dialog("close").remove();
+                        }
+
+                        /**
+                         * @var tables_table    Object referring to the <tbody> element that holds the list of tables
+                         */
+                        var tables_table = $("#tablesForm").find("tbody").not("#tbl_summary_row");
+                        // this is the first table created in this db
+                        if (tables_table.length == 0) {
+                            if (window.parent && window.parent.frame_content) {
+                                window.parent.frame_content.location.reload();
+                            }
+                        } else {
+                            /**
+                             * @var curr_last_row   Object referring to the last <tr> element in {@link tables_table}
+                             */
+                            var curr_last_row = $(tables_table).find('tr:last');
+                            /**
+                             * @var curr_last_row_index_string   String containing the index of {@link curr_last_row}
+                             */
+                            var curr_last_row_index_string = $(curr_last_row).find('input:checkbox').attr('id').match(/\d+/)[0];
+                            /**
+                             * @var curr_last_row_index Index of {@link curr_last_row}
+                             */
+                            var curr_last_row_index = parseFloat(curr_last_row_index_string);
+                            /**
+                             * @var new_last_row_index   Index of the new row to be appended to {@link tables_table}
+                             */
+                            var new_last_row_index = curr_last_row_index + 1;
+                            /**
+                             * @var new_last_row_id String containing the id of the row to be appended to {@link tables_table}
+                             */
+                            var new_last_row_id = 'checkbox_tbl_' + new_last_row_index;
+
+                            data.new_table_string = data.new_table_string.replace(/checkbox_tbl_/, new_last_row_id);
+                            //append to table
+                            $(data.new_table_string)
+                             .appendTo(tables_table);
+
+                            //Sort the table
+                            $(tables_table).PMA_sort_table('th');
+                        }
+
+                        //Refresh navigation frame as a new table has been added
+                        if (window.parent && window.parent.frame_navigation) {
+                            window.parent.frame_navigation.location.reload();
+                        }
+                    } else {
+                        $('#properties_message')
+                         .addClass('error')
+                         .html(data.error);
+                        // scroll to the div containing the error message
+                        $('#properties_message')[0].scrollIntoView();
                     }
-                } else {
-                    /**
-                     * @var curr_last_row   Object referring to the last <tr> element in {@link tables_table}
-                     */
-                    var curr_last_row = $(tables_table).find('tr:last');
-                    /**
-                     * @var curr_last_row_index_string   String containing the index of {@link curr_last_row}
-                     */
-                    var curr_last_row_index_string = $(curr_last_row).find('input:checkbox').attr('id').match(/\d+/)[0];
-                    /**
-                     * @var curr_last_row_index Index of {@link curr_last_row}
-                     */
-                    var curr_last_row_index = parseFloat(curr_last_row_index_string);
-                    /**
-                     * @var new_last_row_index   Index of the new row to be appended to {@link tables_table}
-                     */
-                    var new_last_row_index = curr_last_row_index + 1;
-                    /**
-                     * @var new_last_row_id String containing the id of the row to be appended to {@link tables_table}
-                     */
-                    var new_last_row_id = 'checkbox_tbl_' + new_last_row_index;
-
-                    //append to table
-                    $(data.new_table_string)
-                     .find('input:checkbox')
-                     .val(new_last_row_id)
-                     .end()
-                     .appendTo(tables_table);
-
-                    //Sort the table
-                    $(tables_table).PMA_sort_table('th');
-                }
-
-                //Refresh navigation frame as a new table has been added
-                if (window.parent && window.parent.frame_navigation) {
-                    window.parent.frame_navigation.location.reload();
-                }
-            }
+                }) // end $.post()
+            } // end if ($form.hasClass('ajax')
             else {
-                PMA_ajaxShowMessage(data.error);
+                // non-Ajax submit
+                $form.append('<input type="hidden" name="do_save_data" value="save" />');
+                $form.submit();
             }
-        }) // end $.post()
-    }) // end create table form (save) 
+        } // end if (checkTableEditForm() )
+    }) // end create table form (save)
 
     /**
      * Attach event handler for create table form (add fields)
@@ -1748,7 +1570,7 @@ $(document).ready(function() {
      *
      */
     // .live() must be called after a selector, see http://api.jquery.com/live
-    $("#create_table_form input[name=submit_num_fields]").live('click', function(event) {
+    $("#create_table_form.ajax input[name=submit_num_fields]").live('click', function(event) {
         event.preventDefault();
 
         /**
@@ -1756,115 +1578,47 @@ $(document).ready(function() {
          */
         var $form = $("#create_table_form");
 
-        PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
-        if (! $form.find('input:hidden').is('#ajax_request_hidden')) {
-            $form.append('<input type="hidden" id="ajax_request_hidden" name="ajax_request" value="true" />');
-        }
+        var $msgbox = PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
+        PMA_prepareForAjaxRequest($form);
 
         //User wants to add more fields to the table
         $.post($form.attr('action'), $form.serialize() + "&submit_num_fields=" + $(this).val(), function(data) {
-            $("#create_table_dialog").html(data);
+            // if 'create_table_dialog' exists
+            if ($("#create_table_dialog").length > 0) {
+                $("#create_table_dialog").html(data);
+            }
+            // if 'create_table_div' exists
+            if ($("#create_table_div").length > 0) {
+                $("#create_table_div").html(data);
+            }
+            PMA_verifyTypeOfAllColumns();
+            PMA_ajaxRemoveMessage($msgbox);    
         }) //end $.post()
 
-    }) // end create table form (add fields) 
+    }) // end create table form (add fields)
 
 }, 'top.frame_content'); //end $(document).ready for 'Create Table'
 
 /**
- * Attach event handlers for Empty Table and Drop Table.  Used wherever libraries/
- * tbl_links.inc.php is used.
- */
-$(document).ready(function() {
-
-    /**
-     * Attach Ajax event handlers for Empty Table
-     *
-     * @uses    PMA_ajaxShowMessage()
-     * @uses    $.PMA_confirm()
-     */
-    $("#empty_table_anchor").live('click', function(event) {
-        event.preventDefault();
-
-        /**
-         * @var question    String containing the question to be asked for confirmation
-         */
-        var question = 'TRUNCATE TABLE ' + window.parent.table;
-
-        $(this).PMA_confirm(question, $(this).attr('href'), function(url) {
-
-            PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
-            $.get(url, {'is_js_confirmed': 1, 'ajax_request': true}, function(data) {
-                if(data.success == true) {
-                    PMA_ajaxShowMessage(data.message);
-                    $("#topmenucontainer")
-                    .next('div')
-                    .remove()
-                    .end()
-                    .after(data.sql_query);
-                }
-                else {
-                    PMA_ajaxShowMessage(data.error);
-                }
-            }) // end $.get
-        }) // end $.PMA_confirm()
-    }) // end Empty Table
-
-    /**
-     * Attach Ajax event handler for Drop Table
-     *
-     * @uses    PMA_ajaxShowMessage()
-     * @uses    $.PMA_confirm()
-     * @uses    window.parent.refreshNavigation()
-     */
-    $("#drop_table_anchor").live('click', function(event) {
-        event.preventDefault();
-
-        /**
-         * @var question    String containing the question to be asked for confirmation
-         */
-        var question = 'DROP TABLE/VIEW ' + window.parent.table;
-        $(this).PMA_confirm(question, $(this).attr('href'), function(url) {
-
-            PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
-            $.get(url, {'is_js_confirmed': 1, 'ajax_request': true}, function(data) {
-                if(data.success == true) {
-                    PMA_ajaxShowMessage(data.message);
-                    $("#topmenucontainer")
-                    .next('div')
-                    .remove()
-                    .end()
-                    .after(data.sql_query);
-                    window.parent.table = '';
-                    if (window.parent && window.parent.frame_navigation) {
-                        window.parent.frame_navigation.location.reload();
-                    }
-                }
-                else {
-                    PMA_ajaxShowMessage(data.error);
-                }
-            }) // end $.get
-        }) // end $.PMA_confirm()
-    }) // end $().live()
-}, 'top.frame_content'); //end $(document).ready() for libraries/tbl_links.inc.php
-
-/**
  * Attach Ajax event handlers for Drop Trigger.  Used on tbl_structure.php
+ * @see $cfg['AjaxEnable']
  */
 $(document).ready(function() {
 
     $(".drop_trigger_anchor").live('click', function(event) {
         event.preventDefault();
 
+        $anchor = $(this);
         /**
          * @var curr_row    Object reference to the current trigger's <tr>
          */
-        var curr_row = $(this).parents('tr');
+        var $curr_row = $anchor.parents('tr');
         /**
          * @var question    String containing the question to be asked for confirmation
          */
-        var question = 'DROP TRIGGER IF EXISTS `' + $(curr_row).children('td:first').text() + '`';
+        var question = 'DROP TRIGGER IF EXISTS `' + $curr_row.children('td:first').text() + '`';
 
-        $(this).PMA_confirm(question, $(this).attr('href'), function(url) {
+        $anchor.PMA_confirm(question, $anchor.attr('href'), function(url) {
 
             PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
             $.get(url, {'is_js_confirmed': 1, 'ajax_request': true}, function(data) {
@@ -1875,7 +1629,7 @@ $(document).ready(function() {
                     .remove()
                     .end()
                     .after(data.sql_query);
-                    $(curr_row).hide("medium").remove();
+                    $curr_row.hide("medium").remove();
                 }
                 else {
                     PMA_ajaxShowMessage(data.error);
@@ -1893,6 +1647,7 @@ $(document).ready(function() {
  * @uses    PMA_ajaxShowMessage()
  * @uses    window.parent.refreshNavigation()
  * @uses    window.parent.refreshMain()
+ * @see $cfg['AjaxEnable']
  */
 $(document).ready(function() {
     $("#drop_db_anchor").live('click', function(event) {
@@ -1902,7 +1657,7 @@ $(document).ready(function() {
         /**
          * @var question    String containing the question to be asked for confirmation
          */
-        var question = PMA_messages['strDropDatabaseStrongWarning'] + '\n' + PMA_messages['strDoYouReally'] + ' :\n' + 'DROP DATABASE ' + window.parent.db;
+        var question = PMA_messages['strDropDatabaseStrongWarning'] + '\n' + PMA_messages['strDoYouReally'] + ' :\n' + 'DROP DATABASE ' + escapeHtml(window.parent.db);
 
         $(this).PMA_confirm(question, $(this).attr('href') ,function(url) {
 
@@ -1921,19 +1676,17 @@ $(document).ready(function() {
  * display_create_database.lib.php is used, ie main.php and server_databases.php
  *
  * @uses    PMA_ajaxShowMessage()
+ * @see $cfg['AjaxEnable']
  */
 $(document).ready(function() {
 
-    $('#create_database_form').live('submit', function(event) {
+    $('#create_database_form.ajax').live('submit', function(event) {
         event.preventDefault();
 
         $form = $(this);
 
         PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
-
-        if (! $form.find('input:hidden').is('#ajax_request_hidden')) {
-            $form.append('<input type="hidden" id="ajax_request_hidden" name="ajax_request" value="true" />');
-        }
+        PMA_prepareForAjaxRequest($form);
 
         $.post($form.attr('action'), $form.serialize(), function(data) {
             if(data.success == true) {
@@ -1949,7 +1702,7 @@ $(document).ready(function() {
                 .removeClass('odd even');
 
                 var $databases_count_object = $('#databases_count');
-                var databases_count = parseInt($databases_count_object.text()); 
+                var databases_count = parseInt($databases_count_object.text());
                 $databases_count_object.text(++databases_count);
                 //Refresh navigation frame as a new database has been added
                 if (window.parent && window.parent.frame_navigation) {
@@ -1970,23 +1723,28 @@ $(document).ready(function() {
 
     /**
      * Attach Ajax event handler on the change password anchor
+     * @see $cfg['AjaxEnable']
      */
-    $('#change_password_anchor').live('click', function(event) {
+    $('#change_password_anchor.dialog_active').live('click',function(event) {
         event.preventDefault();
-
+        return false;
+        });
+    $('#change_password_anchor.ajax').live('click', function(event) {
+        event.preventDefault();
+        $(this).removeClass('ajax').addClass('dialog_active');
         /**
          * @var button_options  Object containing options to be passed to jQueryUI's dialog
          */
         var button_options = {};
-
         button_options[PMA_messages['strCancel']] = function() {$(this).dialog('close').remove();}
-
         $.get($(this).attr('href'), {'ajax_request': true}, function(data) {
-            $('<div id="change_password_dialog></div>')
+            $('<div id="change_password_dialog"></div>')
             .dialog({
                 title: PMA_messages['strChangePassword'],
                 width: 600,
-                buttons : button_options
+                close: function(ev,ui) {$(this).remove();}, 
+                buttons : button_options,
+                beforeClose: function(ev,ui){ $('#change_password_anchor.dialog_active').removeClass('dialog_active').addClass('ajax')}
             })
             .append(data);
             displayPasswordGenerateButton();
@@ -1997,8 +1755,9 @@ $(document).ready(function() {
      * Attach Ajax event handler for Change Password form submission
      *
      * @uses    PMA_ajaxShowMessage()
+     * @see $cfg['AjaxEnable']
      */
-    $("#change_password_form").find('input[name=change_pw]').live('click', function(event) {
+    $("#change_password_form.ajax").find('input[name=change_pw]').live('click', function(event) {
         event.preventDefault();
 
         /**
@@ -2013,18 +1772,16 @@ $(document).ready(function() {
          */
         var this_value = $(this).val();
 
-        PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
+        var $msgbox = PMA_ajaxShowMessage(PMA_messages['strProcessingRequest']);
         $(the_form).append('<input type="hidden" name="ajax_request" value="true" />');
 
         $.post($(the_form).attr('action'), $(the_form).serialize() + '&change_pw='+ this_value, function(data) {
             if(data.success == true) {
-
-                PMA_ajaxShowMessage(data.message);
-
                 $("#topmenucontainer").after(data.sql_query);
-
                 $("#change_password_dialog").hide().remove();
                 $("#edit_user_dialog").dialog("close").remove();
+                $('#change_password_anchor.dialog_active').removeClass('dialog_active').addClass('ajax');
+                PMA_ajaxRemoveMessage($msgbox); 
             }
             else {
                 PMA_ajaxShowMessage(data.error);
@@ -2038,13 +1795,21 @@ $(document).ready(function() {
  * the page loads and when the selected data type changes
  */
 $(document).ready(function() {
-    $.each($("select[class='column_type']"), function() {
-        toggle_enum_notice($(this));
-    });
-    $("select[class='column_type']").change(function() {
-        toggle_enum_notice($(this));
+    // is called here for normal page loads and also when opening
+    // the Create table dialog
+    PMA_verifyTypeOfAllColumns();
+    //
+    // needs live() to work also in the Create Table dialog
+    $("select[class='column_type']").live('change', function() {
+        PMA_showNoticeForEnum($(this));
     });
 });
+
+function PMA_verifyTypeOfAllColumns() {
+    $("select[class='column_type']").each(function() {
+        PMA_showNoticeForEnum($(this));
+    });
+}
 
 /**
  * Closes the ENUM/SET editor and removes the data in it
@@ -2061,7 +1826,8 @@ function disable_popup() {
  * Opens the ENUM/SET editor and controls its functions
  */
 $(document).ready(function() {
-    $("a[class='open_enum_editor']").click(function() {
+    // Needs live() to work also in the Create table dialog
+    $("a[class='open_enum_editor']").live('click', function() {
         // Center the popup
         var windowWidth = document.documentElement.clientWidth;
         var windowHeight = document.documentElement.clientHeight;
@@ -2076,46 +1842,74 @@ $(document).ready(function() {
         $("#popup_background").fadeIn("fast");
         $("#enum_editor").fadeIn("fast");
 
-        // Get the values
-        var values = $(this).parent().prev("input").attr("value").split(",");
-        $.each(values, function(index, val) {
-            if(jQuery.trim(val) != "") {
-                 // enclose the string in single quotes if it's not already
-                 if(val.substr(0, 1) != "'") {
-                      val = "'" + val;
-                 }
-                 if(val.substr(val.length-1, val.length) != "'") {
-                      val = val + "'";
-                 }
-                // escape the single quotes, except the mandatory ones enclosing the entire string
-                val = val.substr(1, val.length-2).replace(/''/g, "'").replace(/\\\\/g, '\\').replace(/\\'/g, "'").replace(/'/g, "&#039;");
-                // escape the greater-than symbol
-                val = val.replace(/>/g, "&gt;");
-                $("#enum_editor #values").append("<input type='text' value=" + val + " />");
+        // Get the values as a string
+        var inputstring = $(this)
+            .parent()
+            .prev("input")
+            .val();
+        // Escape html entities
+        inputstring = $('<div/>')
+            .text(inputstring)
+            .html();
+        // Parse the values, escaping quotes and
+        // slashes on the fly, into an array
+        var values = [];
+        var in_string = false;
+        var curr, next, buffer = '';
+        for (var i=0; i<inputstring.length; i++) {
+            curr = inputstring.charAt(i);
+            next = i == inputstring.length ? '' : inputstring.charAt(i+1);
+            if (! in_string && curr == "'") {
+                in_string = true;
+            } else if (in_string && curr == "\\" && next == "\\") {
+                buffer += "&#92;";
+                i++;
+            } else if (in_string && next == "'" && (curr == "'" || curr == "\\")) {
+                buffer += "&#39;";
+                i++;
+            } else if (in_string && curr == "'") {
+                in_string = false;
+                values.push(buffer);
+                buffer = '';
+            } else if (in_string) {
+                 buffer += curr;
             }
-        });
+        }
+        if (buffer.length > 0) {
+            values.push(buffer);
+        }
+        // Add the parsed values to the editor
+        for (var i=0; i<values.length; i++) {
+            $("#enum_editor #values").append(
+                "<input type='text' value='" + values[i] + "' />"
+            );
+        }
         // So we know which column's data is being edited
         $("#enum_editor").append("<input type='hidden' value='" + $(this).parent().prev("input").attr("id") + "' />");
         return false;
     });
 
     // If the "close" link is clicked, close the enum editor
-    $("a[class='close_enum_editor']").click(function() {
+    // Needs live() to work also in the Create table dialog
+    $("a[class='close_enum_editor']").live('click', function() {
         disable_popup();
     });
 
     // If the "cancel" link is clicked, close the enum editor
-    $("a[class='cancel_enum_editor']").click(function() {
+    // Needs live() to work also in the Create table dialog
+    $("a[class='cancel_enum_editor']").live('click', function() {
         disable_popup();
     });
 
     // When "add a new value" is clicked, append an empty text field
-    $("a[class='add_value']").click(function() {
+    // Needs live() to work also in the Create table dialog
+    $("a[class='add_value']").live('click', function() {
         $("#enum_editor #values").append("<input type='text' />");
     });
 
     // When the submit button is clicked, put the data back into the original form
-    $("#enum_editor input[type='submit']").click(function() {
+    // Needs live() to work also in the Create table dialog
+    $("#enum_editor input[type='submit']").live('click', function() {
         var value_array = new Array();
         $.each($("#enum_editor #values input"), function(index, input_element) {
             val = jQuery.trim(input_element.value);
@@ -2135,40 +1929,52 @@ $(document).ready(function() {
      */
     // Remove the actions from the table cells (they are available by default for JavaScript-disabled browsers)
     // if the table is not a view or information_schema (otherwise there is only one action to hide and there's no point)
-    if($("input[type='hidden'][name='table_type']").attr("value") == "table") {
-         $("table[id='tablestructure'] td[class='browse']").remove();
-         $("table[id='tablestructure'] td[class='primary']").remove();
-         $("table[id='tablestructure'] td[class='unique']").remove();
-         $("table[id='tablestructure'] td[class='index']").remove();
-         $("table[id='tablestructure'] td[class='fulltext']").remove();
-         $("table[id='tablestructure'] th[class='action']").attr("colspan", 3);
+    if($("input[type='hidden'][name='table_type']").val() == "table") {
+        var $table = $("table[id='tablestructure']");
+        $table.find("td[class='browse']").remove();
+        $table.find("td[class='primary']").remove();
+        $table.find("td[class='unique']").remove();
+        $table.find("td[class='index']").remove();
+        $table.find("td[class='fulltext']").remove();
+        $table.find("th[class='action']").attr("colspan", 3);
 
-         // Display the "more" text
-         $("table[id='tablestructure'] td[class='more_opts']").show()
+        // Display the "more" text
+        $table.find("td[class='more_opts']").show();
 
-         // Position the dropdown
-         $.each($(".structure_actions_dropdown"), function() {
-              // The top offset must be set for IE even if it didn't change
-             var cell_right_edge_offset = $(this).parent().offset().left + $(this).parent().innerWidth();
-             var left_offset = cell_right_edge_offset - $(this).innerWidth();
-             var top_offset = $(this).parent().offset().top + $(this).parent().innerHeight();
-             $(this).offset({ top: top_offset, left: left_offset });
-         });
+        // Position the dropdown
+        $(".structure_actions_dropdown").each(function() {
+            // Optimize DOM querying
+            var $this_dropdown = $(this);
+             // The top offset must be set for IE even if it didn't change
+            var cell_right_edge_offset = $this_dropdown.parent().offset().left + $this_dropdown.parent().innerWidth();
+            var left_offset = cell_right_edge_offset - $this_dropdown.innerWidth();
+            var top_offset = $this_dropdown.parent().offset().top + $this_dropdown.parent().innerHeight();
+            $this_dropdown.offset({ top: top_offset, left: left_offset });
+        });
 
-         // A hack for IE6 to prevent the after_field select element from being displayed on top of the dropdown by
-         // positioning an iframe directly on top of it
-         $("iframe[class='IE_hack']").width($("select[name='after_field']").width());
-         $("iframe[class='IE_hack']").height($("select[name='after_field']").height());
-         $("iframe[class='IE_hack']").offset({ top: $("select[name='after_field']").offset().top, left: $("select[name='after_field']").offset().left });
+        // A hack for IE6 to prevent the after_field select element from being displayed on top of the dropdown by
+        // positioning an iframe directly on top of it
+        var $after_field = $("select[name='after_field']");
+        $("iframe[class='IE_hack']")
+            .width($after_field.width())
+            .height($after_field.height())
+            .offset({
+                top: $after_field.offset().top,
+                left: $after_field.offset().left
+            });
 
-         // When "more" is hovered over, show the hidden actions
-         $("table[id='tablestructure'] td[class='more_opts']").mouseenter(
-             function() {
+        // When "more" is hovered over, show the hidden actions
+        $table.find("td[class='more_opts']")
+            .mouseenter(function() {
                 if($.browser.msie && $.browser.version == "6.0") {
-                    $("iframe[class='IE_hack']").show();
-                    $("iframe[class='IE_hack']").width($("select[name='after_field']").width()+4);
-                    $("iframe[class='IE_hack']").height($("select[name='after_field']").height()+4);
-                    $("iframe[class='IE_hack']").offset({ top: $("select[name='after_field']").offset().top, left: $("select[name='after_field']").offset().left});
+                    $("iframe[class='IE_hack']")
+                        .show()
+                        .width($after_field.width()+4)
+                        .height($after_field.height()+4)
+                        .offset({
+                            top: $after_field.offset().top,
+                            left: $after_field.offset().left
+                        });
                 }
                 $(".structure_actions_dropdown").hide(); // Hide all the other ones that may be open
                 $(this).children(".structure_actions_dropdown").show();
@@ -2176,15 +1982,17 @@ $(document).ready(function() {
                 if($.browser.msie) {
                     var left_offset_IE = $(this).offset().left + $(this).innerWidth() - $(this).children(".structure_actions_dropdown").innerWidth();
                     var top_offset_IE = $(this).offset().top + $(this).innerHeight();
-                    $(this).children(".structure_actions_dropdown").offset({ top: top_offset_IE, left: left_offset_IE });
+                    $(this).children(".structure_actions_dropdown").offset({
+                        top: top_offset_IE,
+                        left: left_offset_IE });
                 }
-         });
-         $(".structure_actions_dropdown").mouseleave(function() {
-              $(this).hide();
-              if($.browser.msie && $.browser.version == "6.0") {
-                  $("iframe[class='IE_hack']").hide();
-              }
-         });
+            })
+            .mouseleave(function() {
+                $(this).children(".structure_actions_dropdown").hide();
+                if($.browser.msie && $.browser.version == "6.0") {
+                    $("iframe[class='IE_hack']").hide();
+                }
+            });
     }
 });
 
@@ -2211,7 +2019,7 @@ $(document).ready(function() {
         $(this).qtip({
             content: tooltip_text,
             show: { delay: 0 },
-            hide: { when: 'unfocus', delay: 0 },
+            hide: { delay: 1000 },
             style: { background: '#ffffcc' }
         });
     });
@@ -2220,7 +2028,7 @@ $(document).ready(function() {
 function menuResize()
 {
     var cnt = $('#topmenu');
-    var wmax = cnt.width() - 5; // 5 px margin for jumping menu in Chrome
+    var wmax = cnt.innerWidth() - 5; // 5 px margin for jumping menu in Chrome
     var submenu = cnt.find('.submenu');
     var submenu_w = submenu.outerWidth(true);
     var submenu_ul = submenu.find('ul');
@@ -2252,7 +2060,7 @@ function menuResize()
         for (var i = hide_start; i < li.length-1; i++) {
             $(li[i])[more_shown ? 'prependTo' : 'appendTo'](submenu_ul);
         }
-        submenu.show();
+        submenu.addClass('shown');
     } else if (more_shown) {
         w -= submenu_w;
         // nothing hidden, maybe something can be restored
@@ -2263,7 +2071,7 @@ function menuResize()
             if (w+submenu_w < wmax || (i == li2.length-1 && w < wmax)) {
                 $(li2[i]).insertBefore(submenu);
                 if (i == li2.length-1) {
-                    submenu.hide();
+                    submenu.removeClass('shown');
                 }
                 continue;
             }
@@ -2304,8 +2112,7 @@ $(function() {
             if ($(this).find('ul .tabactive').length == 0) {
                 $(this).removeClass('submenuhover').find('> a').removeClass('tabactive');
             }
-        })
-        .hide();
+        });
     topmenu.append(submenu);
 
     // populate submenu and register resize event
@@ -2325,7 +2132,7 @@ $(document).ready(function() {
         var right_checkbox_id = current_checkbox_id.replace('_left', '_right');
         var other_checkbox_id = '';
         if (current_checkbox_id == left_checkbox_id) {
-            other_checkbox_id = right_checkbox_id; 
+            other_checkbox_id = right_checkbox_id;
         } else {
             other_checkbox_id = left_checkbox_id;
         }
@@ -2341,7 +2148,7 @@ $(document).ready(function() {
                 .filter(function(index) {
                     // the first clicked row can be on a row above or below the
                     // shift-clicked row
-                    return (index_of_current_checkbox > index_of_last_click && index > index_of_last_click && index < index_of_current_checkbox) 
+                    return (index_of_current_checkbox > index_of_last_click && index > index_of_last_click && index < index_of_current_checkbox)
                      || (index_of_last_click > index_of_current_checkbox && index < index_of_last_click && index > index_of_current_checkbox);
                 })
                 .each(function(index) {
@@ -2356,8 +2163,8 @@ $(document).ready(function() {
 
         $('.multi_checkbox').removeClass('last_clicked');
         $current_checkbox.addClass('last_clicked');
-        
-        // When there is a checkbox on both ends of the row, propagate the 
+
+        // When there is a checkbox on both ends of the row, propagate the
         // click on one of them to the other one.
         // (the default action has not been prevented so if we have
         // just clicked, this "if" is true)
@@ -2377,6 +2184,39 @@ function PMA_getRowNumber(classlist) {
 }
 
 /**
+ * Changes status of slider
+ */
+function PMA_set_status_label(id) {
+    if ($('#' + id).css('display') == 'none') {
+        $('#anchor_status_' + id).text('+ ');
+    } else {
+        $('#anchor_status_' + id).text('- ');
+    }
+}
+
+/**
+ * Initializes slider effect.
+ */
+function PMA_init_slider() {
+    $('.pma_auto_slider').each(function(idx, e) {
+        if ($(e).hasClass('slider_init_done')) return;
+        $(e).addClass('slider_init_done');
+        $('<span id="anchor_status_' + e.id + '"></span>')
+            .insertBefore(e);
+        PMA_set_status_label(e.id);
+
+        $('<a href="#' + e.id + '" id="anchor_' + e.id + '">' + e.title + '</a>')
+            .insertBefore(e)
+            .click(function() {
+                $('#' + e.id).toggle('clip', function() {
+                    PMA_set_status_label(e.id);
+                });
+                return false;
+            });
+    });
+}
+
+/**
  * Vertical pointer
  */
 $(document).ready(function() {
@@ -2386,20 +2226,20 @@ $(document).ready(function() {
         var $this_td = $(this);
         var row_num = PMA_getRowNumber($this_td.attr('class'));
         // for all td of the same vertical row, toggle hover
-        $('.vpointer').filter('.row_' + row_num).toggleClass('hover'); 
+        $('.vpointer').filter('.row_' + row_num).toggleClass('hover');
         }
         );
 }) // end of $(document).ready() for vertical pointer
 
 $(document).ready(function() {
     /**
-     * Vertical marker 
+     * Vertical marker
      */
     $('.vmarker').live('click', function(e) {
         var $this_td = $(this);
         var row_num = PMA_getRowNumber($this_td.attr('class'));
-        // for all td of the same vertical row, toggle the marked class 
-        $('.vmarker').filter('.row_' + row_num).toggleClass('marked'); 
+        // for all td of the same vertical row, toggle the marked class
+        $('.vmarker').filter('.row_' + row_num).toggleClass('marked');
         });
 
     /**
@@ -2407,5 +2247,70 @@ $(document).ready(function() {
      */
 
     $('#visual_builder_anchor').show();
+
+    /**
+     * Page selector in db Structure (non-AJAX)
+     */
+    $('#tableslistcontainer').find('#pageselector').live('change', function() {
+        $(this).parent("form").submit();
+    });
+
+    /**
+     * Page selector in navi panel (non-AJAX)
+     */
+    $('#navidbpageselector').find('#pageselector').live('change', function() {
+        $(this).parent("form").submit();
+    });
+
+    /**
+     * Page selector in browse_foreigners windows (non-AJAX)
+     */
+    $('#body_browse_foreigners').find('#pageselector').live('change', function() {
+        $(this).closest("form").submit();
+    });
+
+    /**
+     * Load version information asynchronously.
+     */
+    if ($('.jsversioncheck').length > 0) {
+        $.getScript('http://www.phpmyadmin.net/home_page/version.js', PMA_current_version);
+    }
+
+    /**
+     * Slider effect.
+     */
+    PMA_init_slider();
+
+    /**
+     * Enables the text generated by PMA_linkOrButton() to be clickable
+     */
+    $('.clickprevimage')
+        .css('color', function(index) {
+            return $('a').css('color');
+        })
+        .css('cursor', function(index) {
+            return $('a').css('cursor');
+        }) //todo: hover effect
+        .live('click',function(e) {
+            $this_span = $(this);
+            if ($this_span.closest('td').is('.inline_edit_anchor')) {
+            // this would bind a second click event to the inline edit
+            // anchor and would disturb its behavior
+            } else {
+                $this_span.parent().find('input:image').click();
+            }
+        });
+
 }) // end of $(document).ready()
 
+/**
+ * HTML escaping
+ */
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}

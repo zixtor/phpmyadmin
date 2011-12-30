@@ -62,6 +62,13 @@ $cfg['SuhosinDisableWarning'] = false;
 $cfg['McryptDisableWarning'] = false;
 
 /**
+ * Show warning about incomplete translations on certain threshold.
+ *
+ * @global boolean $cfg['TranslationWarningThreshold']
+ */
+$cfg['TranslationWarningThreshold'] = 80;
+
+/**
  * Allows phpMyAdmin to be included from a document located on
  * another domain; setting this to true is a potential security hole
  *
@@ -135,7 +142,7 @@ $cfg['Servers'][$i]['connect_type'] = 'tcp';
  *
  * @global string $cfg['Servers'][$i]['extension']
  */
-$cfg['Servers'][$i]['extension'] = 'mysql';
+$cfg['Servers'][$i]['extension'] = 'mysqli';
 
 /**
  * Use compressed protocol for the MySQL connection (requires PHP >= 4.3.0)
@@ -425,7 +432,7 @@ $cfg['Servers'][$i]['ShowDatabasesCommand'] = 'SHOW DATABASES';
  *
  * @global array $cfg['Servers'][$i]['CountTables']
  */
-$cfg['Servers'][$i]['CountTables'] = true;
+$cfg['Servers'][$i]['CountTables'] = false;
 
 /**
  * Whether the tracking mechanism creates versions for tables and views automatically.
@@ -487,6 +494,20 @@ $cfg['ServerDefault'] = 1;
 /*
  * Other core phpMyAdmin settings
  */
+/**
+ * whether Ajax behavior is active
+ *
+ * @global boolean $cfg['AjaxEnable']
+ */
+$cfg['AjaxEnable'] = true;
+
+/**
+ * whether version check is active
+ *
+ * @global boolean $cfg['VersionCheck']
+ */
+$cfg['VersionCheck'] = VERSION_CHECK_DEFAULT;
+
 /**
  * maximum number of db's displayed in left frame and database list
  *
@@ -1172,7 +1193,7 @@ $cfg['Export']['file_template_server'] = '@SERVER@';
 $cfg['Export']['codegen_structure_or_data'] = 'data';
 
 /**
- * 
+ *
  *
  * @global $cfg['Export']['codegen_format']
  */
@@ -2172,7 +2193,7 @@ $cfg['TextareaCols'] = 40;
 $cfg['TextareaRows'] = 15;
 
 /**
- * double size of textarea size for LONGTEXT columns 
+ * double size of textarea size for LONGTEXT columns
  *
  * @global boolean $cfg['LongtextDoubleTextarea']
  */
@@ -2439,7 +2460,7 @@ $cfg['ThemeManager'] = true;
  *
  * @global string $cfg['ThemeDefault']
  */
-$cfg['ThemeDefault'] = 'original';
+$cfg['ThemeDefault'] = 'pmahomme';
 
 /**
  * allow different theme for each configured server
@@ -2575,6 +2596,9 @@ $cfg['CheckConfigurationPermissions'] = true;
  * Limit for length of URL in links. When length would be above this limit, it
  * is replaced by form with button.
  * This is required as some web servers (IIS) have problems with long URLs.
+ * The recommended limit is 2000 
+ * (see http://www.boutell.com/newfaq/misc/urllength.html) but we put
+ * 1000 to accommodate Suhosin, see bug #3358750.
  */
 $cfg['LinkLengthLimit'] = 1000;
 

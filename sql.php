@@ -57,17 +57,24 @@ if (isset($fields['dbase'])) {
  * This doesn't seem to be the right place to do this, but I can't think of any
  * better place either.
  */
-if(isset($_REQUEST['get_relational_values']) && $_REQUEST['get_relational_values'] == true) {
+if (isset($_REQUEST['get_relational_values']) && $_REQUEST['get_relational_values'] == true) {
     require_once 'libraries/relation.lib.php';
 
     $column = $_REQUEST['column'];
     $foreigners = PMA_getForeigners($db, $table, $column);
 
+    $display_field = PMA_getDisplayField($foreigners[$column]['foreign_db'], $foreigners[$column]['foreign_table']);
+
     $foreignData = PMA_getForeignData($foreigners, $column, false, '', '');
 
-    $dropdown = PMA_foreignDropdown($foreignData['disp_row'], $foreignData['foreign_field'], $foreignData['foreign_display'], $_REQUEST['curr_value'], $cfg['ForeignKeyMaxLimit']);
-
-    if( $dropdown == '<option value="">&nbsp;</option>'."\n" ) {
+    if ($_SESSION['tmp_user_values']['relational_display'] == 'D'
+        && (isset($display_field) && strlen($display_field)
+        && (isset($_REQUEST['relation_key_or_display_column']) && $_REQUEST['relation_key_or_display_column']))) {
+            $curr_value = $_REQUEST['relation_key_or_display_column'];
+    } else {
+        $curr_value = $_REQUEST['curr_value'];
+    }
+    if ($foreignData['disp_row'] == null) {
         //Handle the case when number of values is more than $cfg['ForeignKeyMaxLimit']
         $_url_params = array(
                 'db' => $db,
@@ -75,11 +82,12 @@ if(isset($_REQUEST['get_relational_values']) && $_REQUEST['get_relational_values
                 'field' => $column
         );
 
-        $dropdown = '<a href="browse_foreigners.php' . PMA_generate_common_url($_url_params) . '"'
-                    . ' target="_blank" onclick="window.open(this.href, \'foreigners\', \'width=640,height=240,scrollbars=yes,resizable=yes\'); return false"'
-                    .'>Search Foreign Data</a>';
+        $dropdown = '<span class="curr_value">' . htmlspecialchars($_REQUEST['curr_value']) . '</span> <a href="browse_foreigners.php' . PMA_generate_common_url($_url_params) . '"'
+                    . ' target="_blank" class="browse_foreign" '
+                    .'>' . __('Browse foreign values') . '</a>';
     }
     else {
+        $dropdown = PMA_foreignDropdown($foreignData['disp_row'], $foreignData['foreign_field'], $foreignData['foreign_display'], $curr_value, $cfg['ForeignKeyMaxLimit']);
         $dropdown = '<select>' . $dropdown . '</select>';
     }
 
@@ -101,7 +109,7 @@ if(isset($_REQUEST['get_enum_values']) && $_REQUEST['get_enum_values'] == true) 
 
     $values = explode(',', str_replace($search, '', $field_info_result[0]['Type']));
 
-    $dropdown = '';
+    $dropdown = '<option value="">&nbsp;</option>';
     foreach($values as $value) {
         $dropdown .= '<option value="' . htmlspecialchars($value) . '"';
         if($value == $_REQUEST['curr_value']) {
@@ -116,14 +124,45 @@ if(isset($_REQUEST['get_enum_values']) && $_REQUEST['get_enum_values'] == true) 
     PMA_ajaxResponse(NULL, true, $extra_data);
 }
 
+/**
+ * Find possible values for set fields during inline edit.
+ */
+if(isset($_REQUEST['get_set_values']) && $_REQUEST['get_set_values'] == true) {
+    $field_info_query = 'SHOW FIELDS FROM `' . $db . '`.`' . $table . '` LIKE \'' . $_REQUEST['column'] . '\' ;';
+
+    $field_info_result = PMA_DBI_fetch_result($field_info_query, null, null, null, PMA_DBI_QUERY_STORE);
+
+    $selected_values = explode(',', $_REQUEST['curr_value']);
+
+    $search = array('set', '(', ')', "'");
+    $values = explode(',', str_replace($search, '', $field_info_result[0]['Type']));
+
+    $select = '';
+    foreach($values as $value) {
+        $select .= '<option value="' . htmlspecialchars($value) . '"';
+        if(in_array($value, $selected_values, true)) {
+            $select .= ' selected="selected"';
+        }
+        $select .= '>' . $value . '</option>';
+    }
+
+    $select_size = (sizeof($values) > 10) ? 10 : sizeof($values);
+    $select = '<select multiple="multiple" size="' . $select_size . '">' . $select . '</select>';
+
+    $extra_data['select'] = $select;
+    PMA_ajaxResponse(NULL, true, $extra_data);
+}
 // Default to browse if no query set and we have table
 // (needed for browsing from DefaultTabTable)
 if (empty($sql_query) && strlen($table) && strlen($db)) {
     require_once './libraries/bookmark.lib.php';
     $book_sql_query = PMA_Bookmark_get($db, '\'' . PMA_sqlAddslashes($table) . '\'',
-        'label');
+        'label', FALSE, TRUE);
 
     if (! empty($book_sql_query)) {
+        $GLOBALS['using_bookmark_message'] = PMA_message::notice(__('Using bookmark "%s" as default browse query.'));
+        $GLOBALS['using_bookmark_message']->addParam($table);
+        $GLOBALS['using_bookmark_message']->addMessage(PMA_showDocu('faq6_22'));
         $sql_query = $book_sql_query;
     } else {
         $sql_query = 'SELECT * FROM ' . PMA_backquote($table);
@@ -236,7 +275,7 @@ if ($do_confirm) {
     $stripped_sql_query = $sql_query;
     require_once './libraries/header.inc.php';
     if ($is_drop_database) {
-        echo '<h1 class="warning">' . __('You are about to DESTROY a complete database!') . '</h1>';
+        echo '<h1 class="error">' . __('You are about to DESTROY a complete database!') . '</h1>';
     }
     echo '<form action="sql.php" method="post">' . "\n"
         .PMA_generate_common_hidden_inputs($db, $table);
@@ -355,13 +394,13 @@ if (strlen($db)) {
 if (isset($GLOBALS['show_as_php']) || !empty($GLOBALS['validatequery'])) {
     unset($result);
     $num_rows = 0;
+    $unlim_num_rows = 0;
 } else {
     if (isset($_SESSION['profiling']) && PMA_profilingSupported()) {
         PMA_DBI_query('SET PROFILING=1;');
     }
 
     // Measure query time.
-    // TODO-Item http://sourceforge.net/tracker/index.php?func=detail&aid=571934&group_id=23067&atid=377411
     $querytime_before = array_sum(explode(' ', microtime()));
 
     $result   = @PMA_DBI_try_query($full_sql_query, null, PMA_DBI_QUERY_STORE);
@@ -388,13 +427,6 @@ if (isset($GLOBALS['show_as_php']) || !empty($GLOBALS['validatequery'])) {
              */
             require './' . PMA_securePath($goto);
         } else {
-            /**
-             * HTML header.
-             */
-
-            if($GLOBALS['is_ajax_request'] != true) {
-                require_once './libraries/header.inc.php';
-            }
             $full_err_url = (preg_match('@^(db|tbl)_@', $err_url))
                           ? $err_url . '&amp;show_query=1&amp;sql_query=' . urlencode($sql_query)
                           : $err_url;
@@ -462,6 +494,7 @@ if (isset($GLOBALS['show_as_php']) || !empty($GLOBALS['validatequery'])) {
 
         if (!$is_group
          && !isset($analyzed_sql[0]['queryflags']['union'])
+         && !isset($analyzed_sql[0]['queryflags']['distinct'])
          && !isset($analyzed_sql[0]['table_ref'][1]['table_name'])
          && (empty($analyzed_sql[0]['where_clause'])
            || $analyzed_sql[0]['where_clause'] == '1 ')
@@ -549,7 +582,7 @@ if (isset($GLOBALS['show_as_php']) || !empty($GLOBALS['validatequery'])) {
 } // end else "didn't ask to see php code"
 
 // No rows returned -> move back to the calling page
-if (0 == $num_rows || $is_affected) {
+if ((0 == $num_rows && 0 == $unlim_num_rows) || $is_affected) {
     if ($is_delete) {
         $message = PMA_Message::deleted_rows($num_rows);
     } elseif ($is_insert) {
@@ -622,7 +655,35 @@ if (0 == $num_rows || $is_affected) {
 
             foreach( $rel_fields as $rel_field => $rel_field_value) {
 
-                $where_comparison = '=' . $rel_field_value;
+                $where_comparison = "='" . $rel_field_value . "'";
+                $display_field = PMA_getDisplayField($map[$rel_field]['foreign_db'], $map[$rel_field]['foreign_table']);
+
+                // Field to display from the foreign table?
+                if (isset($display_field) && strlen($display_field)) {
+                    $dispsql     = 'SELECT ' . PMA_backquote($display_field)
+                        . ' FROM ' . PMA_backquote($map[$rel_field]['foreign_db'])
+                        . '.' . PMA_backquote($map[$rel_field]['foreign_table'])
+                        . ' WHERE ' . PMA_backquote($map[$rel_field]['foreign_field'])
+                        . $where_comparison;
+                    $dispresult  = PMA_DBI_try_query($dispsql, null, PMA_DBI_QUERY_STORE);
+                    if ($dispresult && PMA_DBI_num_rows($dispresult) > 0) {
+                        list($dispval) = PMA_DBI_fetch_row($dispresult, 0);
+                    } else {
+                        //$dispval = __('Link not found');
+                    }
+                    @PMA_DBI_free_result($dispresult);
+                } else {
+                    $dispval     = '';
+                } // end if... else...
+
+                if ('K' == $_SESSION['tmp_user_values']['relational_display']) {
+                    // user chose "relational key" in the display options, so
+                    // the title contains the display field
+                    $title = (! empty($dispval))? ' title="' . htmlspecialchars($dispval) . '"' : '';
+                } else {
+                    $title = ' title="' . htmlspecialchars($rel_field_value) . '"';
+                }
+
                 $_url_params = array(
                     'db'    => $map[$rel_field]['foreign_db'],
                     'table' => $map[$rel_field]['foreign_table'],
@@ -632,9 +693,18 @@ if (0 == $num_rows || $is_affected) {
                                         . ' WHERE ' . PMA_backquote($map[$rel_field]['foreign_field'])
                                         . $where_comparison
                 );
+                $output = '<a href="sql.php' . PMA_generate_common_url($_url_params) . '"' . $title . '>';
 
-                $extra_data['relations'][$rel_field] = '<a href="sql.php' . PMA_generate_common_url($_url_params) . '">';
-                $extra_data['relations'][$rel_field] .= '</a>';
+                if ('D' == $_SESSION['tmp_user_values']['relational_display']) {
+                    // user chose "relational display field" in the
+                    // display options, so show display field in the cell
+                    $output .= (!empty($dispval)) ? htmlspecialchars($dispval) : '';
+                } else {
+                    // otherwise display data in the cell
+                    $output .= htmlspecialchars($rel_field_value);
+                }
+                $output .= '</a>';
+                $extra_data['relations'][$rel_field] = $output;
             }
         }
 
@@ -651,7 +721,7 @@ if (0 == $num_rows || $is_affected) {
             parse_str($_REQUEST['transform_fields_list'], $edited_values);
 
             foreach($mime_map as $transformation) {
-                $include_file = $transformation['transformation'];
+                $include_file = PMA_securePath($transformation['transformation']);
                 $column_name = $transformation['column_name'];
                 $column_data = $edited_values[$column_name];
 
@@ -678,8 +748,8 @@ if (0 == $num_rows || $is_affected) {
             }
         }
 
-        if(isset($GLOBALS['display_query'])) {
-            $extra_data['sql_query'] = PMA_showMessage(NULL, $GLOBALS['display_query']);
+        if ($cfg['ShowSQL']) {
+            $extra_data['sql_query'] = PMA_showMessage($message, $GLOBALS['sql_query'], 'success');
         }
         if (isset($GLOBALS['reload']) && $GLOBALS['reload'] == 1) {
             $extra_data['reload'] = 1;
@@ -692,7 +762,7 @@ if (0 == $num_rows || $is_affected) {
         $goto = PMA_securePath($goto);
         // Checks for a valid target script
         $is_db = $is_table = false;
-        if (isset($_REQUEST['purge'])) {
+        if (isset($_REQUEST['purge']) && $_REQUEST['purge'] == '1') {
             $table = '';
             unset($url_params['table']);
         }
@@ -730,7 +800,7 @@ if (0 == $num_rows || $is_affected) {
 else {
     //If we are retrieving the full value of a truncated field or the original
     // value of a transformed field, show it here and exit
-    if( $GLOBALS['inline_edit'] == true) {
+    if( $GLOBALS['inline_edit'] == true && $GLOBALS['cfg']['AjaxEnable']) {
         $row = PMA_DBI_fetch_row($result);
         $extra_data = array();
         $extra_data['value'] = $row[0];
@@ -750,7 +820,7 @@ else {
 
         unset($message);
 
-        if( $GLOBALS['is_ajax_request'] != true) {
+        if( ! $GLOBALS['is_ajax_request'] || ! $GLOBALS['cfg']['AjaxEnable']) {
             if (strlen($table)) {
                 require './libraries/tbl_common.php';
                 $url_query .= '&amp;goto=tbl_sql.php&amp;back=tbl_sql.php';
@@ -765,6 +835,7 @@ else {
             }
         }
         else {
+            require_once './libraries/header.inc.php';
             //we don't need to buffer the output in PMA_showMessage here.
             //set a global variable and check against it in the function
             $GLOBALS['buffer_message'] = false;
@@ -781,9 +852,13 @@ else {
         $fields_cnt  = count($fields_meta);
     }
 
-    if( $GLOBALS['is_ajax_request'] != true ) {
+    if( ! $GLOBALS['is_ajax_request']) {
         //begin the sqlqueryresults div here. container div
-        echo '<div id="sqlqueryresults">';
+        echo '<div id="sqlqueryresults"';
+        if ($GLOBALS['cfg']['AjaxEnable']) {
+            echo ' class="ajax"';
+        }
+        echo '>';
     }
 
     // Display previous update query (from tbl_replace)
@@ -896,5 +971,7 @@ window.onload = function()
 /**
  * Displays the footer
  */
-require './libraries/footer.inc.php';
+if(!isset($_REQUEST['table_maintenance'])) {
+    require './libraries/footer.inc.php';
+}
 ?>

@@ -606,7 +606,7 @@ document.onkeydown = onKeyDownArrowsHandler;
 // ]]>
 </script>
 
-<form id="<?php echo ($action == 'tbl_create.php' ? 'create_table' : 'append_fields'); ?>_form" method="post" action="<?php echo $action; ?>">
+    <form id="<?php echo ($action == 'tbl_create.php' ? 'create_table' : 'append_fields'); ?>_form" method="post" action="<?php echo $action; ?>" <?php echo ($GLOBALS['cfg']['AjaxEnable'] ? ' class="ajax"' : ''); ?>>
 <?php
 echo PMA_generate_common_hidden_inputs($_form_params);
 unset($_form_params);
@@ -631,6 +631,8 @@ if (is_array($content_cells) && is_array($header_cells)) {
     //$empty_row = array_pop($content_cells);
 
     echo '<table id="table_columns">';
+    echo '<caption class="tblHeaders">' . __('Structure') . PMA_showMySQLDocu('SQL-Syntax', 'CREATE_TABLE') . '</caption>';
+
     if ($display_type == 'horizontal') {
         ?>
 <tr>
@@ -772,8 +774,7 @@ if ($action == 'tbl_create.php') {
 ?>
 
 <fieldset class="tblFooters">
-    <input type="submit" name="do_save_data" value="<?php echo __('Save'); ?>"
-        onclick="return checkTableEditForm(this.form, <?php echo $num_fields; ?>)" />
+    <input type="submit" name="do_save_data" value="<?php echo __('Save'); ?>" />
 <?php if ($action == 'tbl_create.php' || $action == 'tbl_addfield.php') { ?>
     <?php echo __('Or'); ?>
     <?php echo sprintf(__('Add %s column(s)'), '<input type="text" id="added_fields" name="added_fields" size="2" value="1" onfocus="this.select()" />'); ?>
@@ -784,18 +785,16 @@ if ($action == 'tbl_create.php') {
         />
 <?php } ?>
 </fieldset>
-
+<div id="properties_message"></div>
 </form>
 
-<center><?php echo PMA_showMySQLDocu('SQL-Syntax', 'CREATE_TABLE'); ?></center>
-
 <div id="enum_editor">
-<a class="close_enum_editor">Close</a>
+<a class="close_enum_editor"><?php echo __('Close'); ?></a>
 <h3><?php printf(__('Values for the column "%s"'), isset($row['Field']) ? htmlspecialchars($row['Field']) : ""); ?></h3>
 <p><?php echo __('Enter each value in a separate field.'); ?></p>
 <div id="values"></div>
-<p><a class="add_value">+ Add a new value</a></p>
-<input type="submit" value="Go" /> <a class="cancel_enum_editor">Cancel</a>
+<p><a class="add_value"><?php echo __('+ Add a new value'); ?></a></p>
+<input type="submit" value="<?php echo __('Go'); ?>" /> <a class="cancel_enum_editor"><?php echo __('Cancel'); ?></a>
 </div>
 
 <div id="popup_background"></div>

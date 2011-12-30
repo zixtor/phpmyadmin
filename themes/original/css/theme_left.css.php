@@ -26,7 +26,7 @@ body {
 <?php if (! empty($GLOBALS['cfg']['FontFamily'])) { ?>
     font-family:        <?php echo $GLOBALS['cfg']['FontFamily']; ?>;
 <?php } ?>
-    background:         <?php echo (isset($_SESSION['tmp_user_values']['custom_color']) ? $_SESSION['tmp_user_values']['custom_color'] : $GLOBALS['cfg']['NaviBackground']); ?>;
+    background:         <?php echo $GLOBALS['cfg']['NaviBackground']; ?>;
     color:              <?php echo $GLOBALS['cfg']['NaviColor']; ?>;
     margin:             0;
     padding:            0.2em 0.2em 0.2em 0.2em;
@@ -75,17 +75,12 @@ button {
     margin-left:        0.3em;
 }
 
-.navi_dbName {
-    font-weight:    bold;
-    color:          <?php echo $GLOBALS['cfg']['NaviDatabaseNameColor']; ?>;
-}
-
 /******************************************************************************/
 /* specific elements */
 
 div#pmalogo {
     <?php //better echo $GLOBALS['cfg']['logoBGC']; ?>
-    background-color: <?php echo (isset($_SESSION['tmp_user_values']['custom_color']) ? $_SESSION['tmp_user_values']['custom_color'] : $GLOBALS['cfg']['NaviBackground']); ?>;
+    background-color: <?php echo $GLOBALS['cfg']['NaviBackground']; ?>;
     padding:.3em;
 }
 div#pmalogo,
@@ -134,7 +129,6 @@ div#leftframelinks .icon {
     margin:             0;
 }
 
-div#reloadlink a img,
 div#leftframelinks a img.icon {
     margin:             0;
     padding:            0.2em;
@@ -167,7 +161,7 @@ div#left_tableList ul {
     margin:             0;
     padding:            0;
     font-size:          80%;
-    background:         <?php echo (isset($_SESSION['tmp_user_values']['custom_color']) ? $_SESSION['tmp_user_values']['custom_color'] : $GLOBALS['cfg']['NaviBackground']); ?>;
+    background:         <?php echo $GLOBALS['cfg']['NaviBackground']; ?>;
 }
 
 div#left_tableList ul ul {
@@ -231,12 +225,6 @@ div#left_tableList ul ul {
     background:         <?php echo $GLOBALS['cfg']['NaviPointerBackground']; ?>;
     color:              <?php echo $GLOBALS['cfg']['NaviPointerColor']; ?>;
 }
-#reloadlink {
-    clear: both;
-    float: <?php echo $right; ?>;
-    display: block;
-    padding: 1em;
-}
 
 #NavFilter {
     display: none;
@@ -247,12 +235,14 @@ div#left_tableList ul ul {
     color: black;
     cursor: pointer;
     padding: 0;
-    margin: 0;
+    margin: 3px 5px 0 -23px;
     position: relative;
-    right: 3ex;
+    float: right;
 }
 
 #fast_filter {
-    width: 85%;
-    padding: 0.1em;
+    width: 100%;
+    padding:2px 0px;
+    margin:0;
+    border:0;
 }

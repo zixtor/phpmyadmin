@@ -64,7 +64,7 @@ if (isset($result)) {
     if (! empty($warning_messages)) {
         $_message = new PMA_Message;
         $_message->addMessages($warning_messages);
-        $_message->isWarning(true);
+        $_message->isError(true);
         unset($warning_messages);
     }
     PMA_showMessage($_message, $sql_query, $_type, $is_view = true);
@@ -79,7 +79,7 @@ $url_params['back'] = 'view_operations.php';
  */
 ?>
 <!-- Table operations -->
-<div id="div_table_options">
+<div class="operations_half_width">
 <form method="post" action="view_operations.php">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db'], $GLOBALS['table']); ?>
 <input type="hidden" name="reload" value="1" />

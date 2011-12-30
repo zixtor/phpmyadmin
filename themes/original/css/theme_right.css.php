@@ -11,6 +11,13 @@
 if (!defined('PMA_MINIMUM_COMMON')) {
     exit();
 }
+
+function PMA_ieFilter($start_color, $end_color)
+{
+    return PMA_USR_BROWSER_AGENT == 'IE' && PMA_USR_BROWSER_VER >= 6 && PMA_USR_BROWSER_VER <= 8
+        ? 'filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr="' . $start_color . '", endColorstr="' . $end_color . '");'
+        : '';
+}
 ?>
 /******************************************************************************/
 /* general tags */
@@ -30,7 +37,7 @@ body {
     padding:            0;
     margin:             0.5em;
     color:              <?php echo $GLOBALS['cfg']['MainColor']; ?>;
-    background:         <?php echo (isset($_SESSION['tmp_user_values']['custom_color']) ? $_SESSION['tmp_user_values']['custom_color'] : $GLOBALS['cfg']['MainBackground']); ?>;
+    background:         <?php echo $GLOBALS['cfg']['MainBackground']; ?>;
 }
 
 <?php if (! empty($GLOBALS['cfg']['FontFamilyFixed'])) { ?>
@@ -102,6 +109,10 @@ textarea {
     height:             <?php echo ceil($GLOBALS['cfg']['TextareaRows'] * 1.2); ?>em;
 }
 
+textarea.char {
+    height:             <?php echo ceil($GLOBALS['cfg']['CharTextareaRows'] * 1.2); ?>em;
+}
+
 fieldset {
     margin-top:         1em;
     border:             <?php echo $GLOBALS['cfg']['MainColor']; ?> solid 1px;
@@ -159,6 +170,13 @@ fieldset.tblFooters {
     clear:              both;
 }
 
+div.null_div {
+    height: 20px;
+    text-align: center;
+    font-style:normal;
+    min-width:50px;
+}
+
 fieldset .formelement {
     float:              <?php echo $left; ?>;
     margin-<?php echo $right; ?>:       0.5em;
@@ -199,6 +217,7 @@ table tr.even {
 <?php if ($GLOBALS['cfg']['BrowseMarkerEnable']) { ?>
 /* marked table rows */
 td.marked,
+table tr.marked td,
 table tr.marked th,
 table tr.marked {
     background:   <?php echo $GLOBALS['cfg']['BrowseMarkerBackground']; ?>;
@@ -233,6 +252,14 @@ tr.condition td,
 td.condition,
 th.condition {
     border: 1px solid <?php echo $GLOBALS['cfg']['BrowseMarkerBackground']; ?>;
+}
+
+/**
+ * cells with the value NULL
+ */
+td.null {
+    font-style: italic;
+    text-align: <?php echo $right; ?>;
 }
 
 table .value {
@@ -373,10 +400,9 @@ td .icon {
     margin-<?php echo $left; ?>: 0.6em;
 }
 
-/* message boxes: warning, error, confirmation */
+/* message boxes: error, confirmation */
 .success h1,
 .notice h1,
-.warning h1,
 div.error h1 {
     border-bottom:      2px solid;
     font-weight:        bold;
@@ -386,7 +412,6 @@ div.error h1 {
 
 div.success,
 div.notice,
-div.warning,
 div.error,
 div.footnotes {
     margin:             0.3em 0 0 0;
@@ -450,30 +475,6 @@ div.footnotes {
 }
 .notice h1 {
     border-color:       #FFD700;
-}
-
-.warning {
-    color:              #CC0000;
-    background-color:   #FFFFCC;
-}
-p.warning,
-h1.warning,
-div.warning {
-    border-color:       #CC0000;
-    <?php if ($GLOBALS['cfg']['ErrorIconic']) { ?>
-    background-image:   url(<?php echo $_SESSION['PMA_Theme']->getImgPath(); ?>s_warn.png);
-    background-repeat:  no-repeat;
-        <?php if ($GLOBALS['text_dir'] === 'ltr') { ?>
-    background-position: 5px 50%;
-    padding:            0.2em 0.2em 0.2em 25px;
-        <?php } else { ?>
-    background-position: 97% 50%;
-    padding:            0.2em 25px 0.2em 0.2em;
-        <?php } ?>
-    <?php } ?>
-}
-.warning h1 {
-    border-color:       #cc0000;
 }
 
 .error {
@@ -655,18 +656,22 @@ ul#topmenu li, ul#topmenu2 li {
 /* default tab styles */
 ul#topmenu a, ul#topmenu span {
     display:            block;
-    margin:             0.2em 0.2em 0 0.2em;
-    padding:            0.2em 0.2em 0 0.2em;
+    margin:             2px 2px 0;
+    padding:            2px 2px 0;
     white-space:        nowrap;
 }
 
 ul#topmenu ul a {
     margin:             0;
-    padding-bottom:     0.2em;
+    padding-bottom:     2px;
 }
 
 ul#topmenu .submenu {
     position:           relative;
+    display:            none;
+}
+ul#topmenu .shown {
+    display:            block;
 }
 
 ul#topmenu ul {
@@ -699,19 +704,6 @@ ul#topmenu span.tab {
     color:              #666666;
 }
 
-/* disabled drop/empty tabs */
-ul#topmenu span.tabcaution {
-    color:              #ff6666;
-}
-
-/* enabled drop/empty tabs */
-ul#topmenu a.tabcaution {
-    color:              #FF0000;
-}
-ul#topmenu a.tabcaution:hover {
-    color: #FFFFFF;
-    background-color:   #FF0000;
-}
 fieldset.caution a {
     color:              #FF0000;
 }
@@ -768,7 +760,7 @@ ul#topmenu ul li:first-child a {
 ul#topmenu > li > a:hover,
 ul#topmenu > li > .tabactive {
     margin:             0;
-    padding:            0.2em 0.4em 0.2em 0.4em;
+    padding:            2px 4px;
     text-decoration:    none;
 }
 
@@ -795,10 +787,9 @@ ul#topmenu > li.active {
      border-bottom:      1pt solid <?php echo $GLOBALS['cfg']['MainBackground']; ?>;
 }
 
-/* disabled drop/empty tabs */
+/* disabled tabs */
 ul#topmenu span.tab,
-a.warning,
-ul#topmenu span.tabcaution {
+a.error {
     cursor:             url(<?php echo $_SESSION['PMA_Theme']->getImgPath(); ?>error.ico), default;
 }
 <?php } ?>
@@ -846,6 +837,7 @@ div#tablestatistics {
 
 div#tablestatistics table {
     float: <?php echo $left; ?>;
+    margin-top: 0.5em;
     margin-bottom: 0.5em;
     margin-<?php echo $right; ?>: 0.5em;
 }
@@ -1224,29 +1216,14 @@ li#li_user_preferences {
     float: <?php echo $left; ?>;
 }
 
-#div_table_order {
-    min-width: 48%;
+.operations_half_width {
+    width: 48%;
     float: <?php echo $left; ?>;
 }
 
-#div_table_rename {
-    min-width: 48%;
-    float: <?php echo $left; ?>;
-}
-
-#div_table_copy,
-#div_partition_maintenance,
-#div_referential_integrity,
-#div_table_removal,
-#div_table_maintenance {
-    min-width: 48%;
-    float: <?php echo $left; ?>;
-}
-
-#div_table_options {
+.operations_full_width {
+    width: 100%;
     clear: both;
-    min-width: 48%;
-    float: <?php echo $left; ?>;
 }
 
 #qbe_div_table_list {
@@ -1308,6 +1285,11 @@ code.sql, div.sqlvalidate {
     width: 98%;
 }
 
+textarea#partitiondefinition {
+    height:3em;
+}
+
+
 /* for elements that should be revealed only via js */
 .hide {
     display:            none;
@@ -1332,7 +1314,7 @@ div.upload_progress_bar_outer
 
 div.upload_progress_bar_inner
 {
-    background-color: <?php echo (isset($_SESSION['userconf']['custom_color']) ? $_SESSION['userconf']['custom_color'] : $GLOBALS['cfg']['NaviBackground']); ?>;
+    background-color: <?php echo $GLOBALS['cfg']['NaviBackground']; ?>;
     width: 0px;
     height: 12px;
     margin: 1px;
@@ -1361,8 +1343,7 @@ table#serverconnection_trg_local  {
     margin-bottom: 0;
     margin-left: auto;
     padding: 3px 5px;   /** Keep a little space on the sides of the text */
-    min-width: 70px;
-    max-width: 350px;   /** This value might have to be changed */
+    width: 350px;
     background-color: #FFD700;
     z-index: 1100;      /** If this is not kept at a high z-index, the jQueryUI modal dialogs (z-index:1000) might hide this */
     text-align: center;
@@ -1415,9 +1396,12 @@ table#serverconnection_trg_local  {
     -moz-border-radius: 11px;
     -webkit-border-radius: 11px;
     border-radius: 11px;
+    background-image: url(./themes/svg_gradient.php?from=ffffff&to=cccccc);
+    background-size: 100% 100%;
     background: -webkit-gradient(linear, left top, left bottom, from(#ffffff), to(#cccccc));
     background: -moz-linear-gradient(top,  #ffffff,  #cccccc);
-    filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#cccccc');
+    background: -o-linear-gradient(top,  #ffffff,  #cccccc);
+    <?php echo PMA_ieFilter('#ffffff', '#cccccc'); ?>
     border: 1px solid #444444;
     cursor: pointer;
 }
@@ -1549,6 +1533,10 @@ a.close_enum_editor {
     padding: 3px;
     display: none;
     z-index: 100;
+}
+
+.structure_actions_dropdown a {
+    display: block;
 }
 
 td.more_opts {
@@ -1779,3 +1767,12 @@ fieldset .disabled-field td {
 #prefs_autoload {
     margin-bottom: 0.5em;
 }
+
+#table_columns input, #table_columns select {
+    width:              14em;
+    box-sizing:         border-box;
+    -ms-box-sizing:     border-box;
+    -moz-box-sizing:    border-box;
+    -webkit-box-sizing: border-box;
+}
+

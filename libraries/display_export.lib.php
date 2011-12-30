@@ -35,13 +35,6 @@ if (empty($export_list)) {
     PMA_Message::error( __('Could not load export plugins, please check your installation!'))->display();
     require './libraries/footer.inc.php';
 }
-
-// If the form data is being loaded from GET data, decode it
-foreach($_GET as $name => $value) {
-    if(is_string($value)) {
-        $_GET[urldecode($name)] = urldecode($value);
-    }
-}
 ?>
 
 <form method="post" action="export.php" name="dump">
@@ -73,7 +66,7 @@ echo '<input type="hidden" name="export_method" value="' . htmlspecialchars($cfg
 
 
 if(isset($_GET['sql_query'])) {
-    echo '<input type="hidden" name="sql_query" value="' . htmlspecialchars(urldecode($_GET['sql_query'])) . '" />' . "\n";
+    echo '<input type="hidden" name="sql_query" value="' . htmlspecialchars($_GET['sql_query']) . '" />' . "\n";
 } elseif (! empty($sql_query)) {
     echo '<input type="hidden" name="sql_query" value="' . htmlspecialchars($sql_query) . '" />' . "\n";
 }
@@ -157,10 +150,10 @@ if(isset($_GET['sql_query'])) {
                     echo '<label for ="radio_allrows_0">' . __('Dump some row(s)') . '</label>'; ?>
                 <ul>
                     <li><label for="limit_to"><?php echo __('Number of rows:') . '</label> <input type="text" id="limit_to" name="limit_to" size="5" value="'
-                . ((isset($_GET['limit_to'])) ? $_GET['limit_to'] : ((isset($unlim_num_rows) ? $unlim_num_rows : PMA_Table::countRecords($db, $table))))
+                . ((isset($_GET['limit_to'])) ? htmlspecialchars($_GET['limit_to']) : ((isset($unlim_num_rows) ? $unlim_num_rows : PMA_Table::countRecords($db, $table))))
                 . '" onfocus="this.select()" />' ?></li>
                     <li><label for="limit_from"><?php echo __('Row to begin at:') . '</label> <input type="text" id="limit_from" name="limit_from" value="'
-                 . ((isset($_GET['limit_from'])) ? $_GET['limit_from'] : '0')
+                 . ((isset($_GET['limit_from'])) ? htmlspecialchars($_GET['limit_from']) : '0')
                  . '" size="5" onfocus="this.select()" />'; ?></li>
                 </ul>
             </li>
@@ -235,7 +228,7 @@ if(isset($_GET['sql_query'])) {
                     }
 
                     $message = new PMA_Message(__('This value is interpreted using %1$sstrftime%2$s, so you can use time formatting strings. Additionally the following transformations will happen: %3$s. Other text will be kept as is. See the %4$sFAQ%5$s for details.'));
-                    $message->addParam('<a href="http://php.net/strftime" target="documentation" title="'
+                    $message->addParam('<a href="' . PMA_linkURL(PMA_getPHPDocLink('function.strftime.php')). '" target="documentation" title="'
                         . __('Documentation') . '">', false);
                     $message->addParam('</a>', false);
                     $message->addParam($trans);
@@ -249,7 +242,7 @@ if(isset($_GET['sql_query'])) {
                     <?php
                         echo ' value="';
                         if(isset($_GET['filename_template'])) {
-                            echo $_GET['filename_template'];
+                            echo htmlspecialchars($_GET['filename_template']);
                         } else {
                             if ($export_type == 'database') {
                                 echo htmlspecialchars($GLOBALS['PMA_Config']->getUserValue(
@@ -296,15 +289,17 @@ if(isset($_GET['sql_query'])) {
                 ?>
                  <?php
                 if(isset($_GET['compression'])) {
-                     $selected_compression = $_GET['compression'];
+                    $selected_compression = $_GET['compression'];
+                } elseif (isset($cfg['Export']['compression'])) {
+                    $selected_compression = $cfg['Export']['compression'];
                 } else {
                     $selected_compression = "none";
                 }
                 // zip, gzip and bzip2 encode features
                 $is_zip  = ($cfg['ZipDump']  && @function_exists('gzcompress'));
                 $is_gzip = ($cfg['GZipDump'] && @function_exists('gzencode'));
-                $is_bzip = ($cfg['BZipDump'] && @function_exists('bzcompress'));
-                if ($is_zip || $is_gzip || $is_bzip) { ?>
+                $is_bzip2 = ($cfg['BZipDump'] && @function_exists('bzcompress'));
+                if ($is_zip || $is_gzip || $is_bzip2) { ?>
                     <li>
                     <label for="compression" class="desc"><?php echo __('Compression:'); ?></label>
                     <select id="compression" name="compression">
@@ -313,8 +308,8 @@ if(isset($_GET['sql_query'])) {
                             <option value="zip" <?php echo ($selected_compression == "zip") ? 'selected="selected"' : ''; ?>><?php echo __('zipped'); ?></option>
                         <?php } if ($is_gzip) { ?>
                             <option value="gzip" <?php echo ($selected_compression == "gzip") ? 'selected="selected"' : ''; ?>><?php echo __('gzipped'); ?></option>
-                        <?php } if ($is_bzip) { ?>
-                            <option value="bzip" <?php echo ($selected_compression == "bzip") ? 'selected="selected"' : ''; ?>><?php echo __('bzipped'); ?></option>
+                        <?php } if ($is_bzip2) { ?>
+                            <option value="bzip2" <?php echo ($selected_compression == "bzip2") ? 'selected="selected"' : ''; ?>><?php echo __('bzipped'); ?></option>
                         <?php } ?>
                     </select>
                     </li>
@@ -323,7 +318,7 @@ if(isset($_GET['sql_query'])) {
                 <?php } ?>
              </ul>
         </li>
-        <li><input type="radio" id="radio_view_as_text" name="output_format" value="astext" <?php echo isset($_GET['repopulate']) ? 'checked="checked"' : '' ?>/><label for="radio_view_as_text">View output as text</label></li>
+        <li><input type="radio" id="radio_view_as_text" name="output_format" value="astext" <?php echo (isset($_GET['repopulate']) || $GLOBALS['cfg']['Export']['asfile'] == false) ? 'checked="checked"' : '' ?>/><label for="radio_view_as_text"><?php echo __('View output as text'); ?></label></li>
     </ul>
  </div>
 
@@ -334,7 +329,7 @@ if(isset($_GET['sql_query'])) {
 
 <div class="exportoptions" id="format_specific_opts">
     <h3><?php echo __('Format-specific options:'); ?></h3>
-    <p class="no_js_msg" id="scroll_to_options_msg">Scroll down to fill in the options for the selected format and ignore the options for other formats.</p>
+    <p class="no_js_msg" id="scroll_to_options_msg"><?php echo __('Scroll down to fill in the options for the selected format and ignore the options for other formats.'); ?></p>
     <?php echo PMA_pluginGetOptions('Export', $export_list); ?>
 </div>
 

@@ -108,7 +108,7 @@ if ($import_type == 'table') {
     }
     $err_url  = $goto
               . '?' . $common
-              . (preg_match('@^tbl_[a-z]*\.php$@', $goto) ? '&amp;table=' . urlencode($table) : '');
+              . (preg_match('@^tbl_[a-z]*\.php$@', $goto) ? '&amp;table=' . htmlspecialchars($table) : '');
     $_SESSION['Import_message']['go_back_url'] = $err_url;
 }
 
@@ -148,6 +148,7 @@ $bookmark_created = FALSE;
 
 // Bookmark Support: get a query back from bookmark if required
 if (!empty($id_bookmark)) {
+    $id_bookmark = (int)$id_bookmark;
     require_once './libraries/bookmark.lib.php';
     switch ($action_bookmark) {
         case 0: // bookmarked query that have to be run
@@ -258,7 +259,7 @@ if ($import_file != 'none' && !$error) {
         if (is_writable($tmp_subdir)) {
 
 
-            $import_file_new = $tmp_subdir . basename($import_file);
+            $import_file_new = $tmp_subdir . basename($import_file) . uniqid();
             if (move_uploaded_file($import_file, $import_file_new)) {
                 $import_file = $import_file_new;
                 $file_to_unlink = $import_file_new;

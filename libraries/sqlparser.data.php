@@ -527,7 +527,6 @@ $PMA_SQPdata_reserved_word = array (
     'LOGS',
     'LOW_PRIORITY',
     'MARIA',                // 5.1 ?
-    'MASTER',
     'MASTER_CONNECT_RETRY',
     'MASTER_HOST',
     'MASTER_LOG_FILE',
@@ -658,6 +657,7 @@ $PMA_SQPdata_reserved_word = array (
     'TO',
     'TRAILING',
     'TRANSACTIONAL',    // 5.1 ?
+    'TRUE',
     'TRUNCATE',
     'TYPE',
     'TYPES',

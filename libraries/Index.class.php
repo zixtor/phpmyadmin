@@ -424,7 +424,7 @@ class PMA_Index
         $indexes = PMA_Index::getFromTable($table, $schema);
 
         if (count($indexes) < 1) {
-            return PMA_Message::warning(__('No index defined!'))->getDisplay();
+            return PMA_Message::error(__('No index defined!'))->getDisplay();
         }
 
         $r = '';
@@ -476,13 +476,16 @@ class PMA_Index
                     $js_msg      = PMA_jsFormat('ALTER TABLE ' . $table . ' DROP INDEX ' . $index->getName());
                 }
 
-                $r .= '<td ' . $row_span . '>'
-                   . '    <a class="drop_primary_key_index_anchor" href="sql.php' . PMA_generate_common_url($this_params)
+                $r .= '<td ' . $row_span . '>';
+                $r .= '<input type="hidden" class="drop_primary_key_index_msg" value="' . $js_msg . '" />';
+                $r .= '    <a ';
+                if ($GLOBALS['cfg']['AjaxEnable']) {
+                    $r .= 'class="drop_primary_key_index_anchor" ';
+                }
+                $r .= ' href="sql.php' . PMA_generate_common_url($this_params)
                    . '" >'
                    . PMA_getIcon('b_drop.png', __('Drop'))  . '</a>'
                    . '</td>' . "\n";
-
-                $r .= '<input type="hidden" class="drop_primary_key_index_msg" value="' . $js_msg . '" />';
             }
 
             $r .= '<th ' . $row_span . '>' . htmlspecialchars($index->getName()) . '</th>';
@@ -573,7 +576,7 @@ class PMA_Index
                 // did not find any difference
                 // so it makes no sense to have this two equal indexes
 
-                $message = PMA_Message::warning(__('The indexes %1$s and %2$s seem to be equal and one of them could possibly be removed.'));
+                $message = PMA_Message::error(__('The indexes %1$s and %2$s seem to be equal and one of them could possibly be removed.'));
                 $message->addParam($each_index->getName());
                 $message->addParam($while_index->getName());
                 $output .= $message->getDisplay();

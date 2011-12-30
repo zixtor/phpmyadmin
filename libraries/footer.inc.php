@@ -56,7 +56,7 @@ if (! PMA_isValid($_REQUEST['no_history']) && empty($GLOBALS['error_message'])
 }
 
 if ($GLOBALS['error_handler']->hasDisplayErrors()) {
-    echo '<div>';
+    echo '<div class="clearfloat">';
     $GLOBALS['error_handler']->dispErrors();
     echo '</div>';
 }
@@ -79,7 +79,7 @@ if (! empty($_SESSION['debug'])) {
     }
 
     echo '<div>';
-    echo count($_SESSION['debug']['queries']) . ' queries executed'
+    echo count($_SESSION['debug']['queries']) . ' queries executed '
         . $sum_exec . ' times in ' . $sum_time . ' seconds';
     echo '<pre>';
     print_r($_SESSION['debug']);
@@ -88,6 +88,7 @@ if (! empty($_SESSION['debug'])) {
     $_SESSION['debug'] = array();
 }
 
+if (!$GLOBALS['is_ajax_request']) {
 ?>
 <script type="text/javascript">
 //<![CDATA[
@@ -162,13 +163,14 @@ if (window.parent.frame_content) {
 //]]>
 </script>
 <?php
+}
 
 // Link to itself to replicate windows including frameset
 if (!isset($GLOBALS['checked_special'])) {
     $GLOBALS['checked_special'] = false;
 }
 
-if (PMA_getenv('SCRIPT_NAME') && empty($_POST) && !$GLOBALS['checked_special']) {
+if (PMA_getenv('SCRIPT_NAME') && empty($_POST) && !$GLOBALS['checked_special'] && ! $GLOBALS['is_ajax_request']) {
     echo '<div id="selflink" class="print_ignore">' . "\n";
     $url_params['target'] = basename(PMA_getenv('SCRIPT_NAME'));
     ?>

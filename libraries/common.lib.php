@@ -101,9 +101,8 @@ function PMA_getIcon($icon, $alternate = '', $container = false, $force_text = f
         $include_box = true;
     }
 
-    if ($include_box) {
-        $button .= '<span class="nowrap">';
-    }
+    // Always use a span (we rely on this in js/sql.js)
+    $button .= '<span class="nowrap">';
 
     if ($include_icon) {
         $button .= '<img src="' . $GLOBALS['pmaThemeImage'] . $icon . '"'
@@ -119,9 +118,7 @@ function PMA_getIcon($icon, $alternate = '', $container = false, $force_text = f
         $button .= $alternate;
     }
 
-    if ($include_box) {
-        $button .= '</span>';
-    }
+    $button .= '</span>';
 
     return $button;
 }
@@ -401,14 +398,18 @@ function PMA_showMySQLDocu($chapter, $link, $big_icon = false, $anchor = '', $ju
             $mysql = '5.0';
             $lang = 'en';
             if (defined('PMA_MYSQL_INT_VERSION')) {
-                if (PMA_MYSQL_INT_VERSION >= 50100) {
+                if (PMA_MYSQL_INT_VERSION >= 50500) {
+                    $mysql = '5.5';
+                    /* l10n: Language to use for MySQL 5.5 documentation, please use only languages which do exist in official documentation.  */
+                    $lang = _pgettext('MySQL 5.5 documentation language', 'en');
+                } else if (PMA_MYSQL_INT_VERSION >= 50100) {
                     $mysql = '5.1';
                     /* l10n: Language to use for MySQL 5.1 documentation, please use only languages which do exist in official documentation.  */
-                    $lang = _pgettext('$mysql_5_1_doc_lang', 'en');
+                    $lang = _pgettext('MySQL 5.1 documentation language', 'en');
                 } elseif (PMA_MYSQL_INT_VERSION >= 50000) {
                     $mysql = '5.0';
                     /* l10n: Language to use for MySQL 5.0 documentation, please use only languages which do exist in official documentation. */
-                    $lang = _pgettext('$mysql_5_0_doc_lang', 'en');
+                    $lang = _pgettext('MySQL 5.0 documentation language', 'en');
                 }
             }
             $url = $cfg['MySQLManualBase'] . '/' . $mysql . '/' . $lang . '/' . $link . '.html';
@@ -419,13 +420,13 @@ function PMA_showMySQLDocu($chapter, $link, $big_icon = false, $anchor = '', $ju
     }
 
     if ($just_open) {
-        return '<a href="' . $url . '" target="mysql_doc">';
+        return '<a href="' . PMA_linkURL($url) . '" target="mysql_doc">';
     } elseif ($big_icon) {
-        return '<a href="' . $url . '" target="mysql_doc"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_sqlhelp.png" width="16" height="16" alt="' . __('Documentation') . '" title="' . __('Documentation') . '" /></a>';
+        return '<a href="' . PMA_linkURL($url) . '" target="mysql_doc"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_sqlhelp.png" width="16" height="16" alt="' . __('Documentation') . '" title="' . __('Documentation') . '" /></a>';
     } elseif ($GLOBALS['cfg']['ReplaceHelpImg']) {
-        return '<a href="' . $url . '" target="mysql_doc"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_help.png" width="11" height="11" alt="' . __('Documentation') . '" title="' . __('Documentation') . '" /></a>';
+        return '<a href="' . PMA_linkURL($url) . '" target="mysql_doc"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_help.png" width="11" height="11" alt="' . __('Documentation') . '" title="' . __('Documentation') . '" /></a>';
     } else {
-        return '[<a href="' . $url . '" target="mysql_doc">' . __('Documentation') . '</a>]';
+        return '[<a href="' . PMA_linkURL($url) . '" target="mysql_doc">' . __('Documentation') . '</a>]';
     }
 } // end of the 'PMA_showMySQLDocu()' function
 
@@ -446,6 +447,25 @@ function PMA_showDocu($anchor) {
         return '[<a href="Documentation.html#' . $anchor . '" target="documentation">' . __('Documentation') . '</a>]';
     }
 } // end of the 'PMA_showDocu()' function
+
+/**
+ * Displays a link to the PHP documentation
+ *
+ * @param string  anchor in documentation
+ *
+ * @return  string  the html link
+ *
+ * @access  public
+ */
+function PMA_showPHPDocu($target) {
+    $url = PMA_getPHPDocLink($target);
+
+    if ($GLOBALS['cfg']['ReplaceHelpImg']) {
+        return '<a href="' . $url . '" target="documentation"><img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_help.png" width="11" height="11" alt="' . __('Documentation') . '" title="' . __('Documentation') . '" /></a>';
+    } else {
+        return '[<a href="' . $url . '" target="documentation">' . __('Documentation') . '</a>]';
+    }
+} // end of the 'PMA_showPHPDocu()' function
 
 /**
  * returns HTML for a footnote marker and add the messsage to the footnotes
@@ -594,12 +614,12 @@ function PMA_mysqlDie($error_message = '', $the_query = '',
             if (strlen($table)) {
                 $_url_params['db'] = $db;
                 $_url_params['table'] = $table;
-                $doedit_goto = '<a href="tbl_sql.php?' . PMA_generate_common_url($_url_params) . '">';
+                $doedit_goto = '<a href="tbl_sql.php' . PMA_generate_common_url($_url_params) . '">';
             } elseif (strlen($db)) {
                 $_url_params['db'] = $db;
-                $doedit_goto = '<a href="db_sql.php?' . PMA_generate_common_url($_url_params) . '">';
+                $doedit_goto = '<a href="db_sql.php' . PMA_generate_common_url($_url_params) . '">';
             } else {
-                $doedit_goto = '<a href="server_sql.php?' . PMA_generate_common_url($_url_params) . '">';
+                $doedit_goto = '<a href="server_sql.php' . PMA_generate_common_url($_url_params) . '">';
             }
 
             $error_msg_output .= $doedit_goto
@@ -641,6 +661,14 @@ function PMA_mysqlDie($error_message = '', $the_query = '',
     $_SESSION['Import_message']['message'] = $error_msg_output;
 
     if ($exit) {
+       /**
+        * If in an Ajax request
+        * - avoid displaying a Back link
+        * - use PMA_ajaxResponse() to transmit the message and exit
+        */
+       if($GLOBALS['is_ajax_request'] == true) {
+           PMA_ajaxResponse($error_msg_output, false);
+       }
         if (! empty($back_url)) {
             if (strstr($back_url, '?')) {
                 $back_url .= '&amp;no_history=true';
@@ -655,16 +683,10 @@ function PMA_mysqlDie($error_message = '', $the_query = '',
             $error_msg_output .= '</fieldset>' . "\n\n";
        }
 
-        /**
-         * If in an Ajax request, don't just echo and exit.  Use PMA_ajaxResponse()
-         */
-        if($GLOBALS['is_ajax_request'] == true) {
-            PMA_ajaxResponse($error_msg_output, false);
-        }
-        echo $error_msg_output;
-        /**
-         * display footer and exit
-         */
+       echo $error_msg_output;
+       /**
+        * display footer and exit
+        */
        require './libraries/footer.inc.php';
     } else {
         echo $error_msg_output;
@@ -684,11 +706,11 @@ function PMA_mysqlDie($error_message = '', $the_query = '',
  * @uses    uksort()
  * @uses    strstr()
  * @uses    explode()
- * @param   string  $db     name of db
- * @param   string  $tables name of tables
- * @param   integer $limit_offset   list offset
- * @param   integer $limit_count    max tables to return
- * return   array   (recursive) grouped table list
+ * @param   string   $db     name of db
+ * @param   string   $tables name of tables
+ * @param   integer  $limit_offset   list offset
+ * @param   int|bool $limit_count    max tables to return
+ * @return  array    (recursive) grouped table list
  */
 function PMA_getTableList($db, $tables = null, $limit_offset = 0, $limit_count = false)
 {
@@ -789,8 +811,8 @@ function PMA_getTableList($db, $tables = null, $limit_offset = 0, $limit_count =
         if ($GLOBALS['cfg']['ShowTooltipAliasTB']
           && $GLOBALS['cfg']['ShowTooltipAliasTB'] !== 'nested') {
             // switch tooltip and name
-            $table['Comment'] = $table['Name'];
             $table['disp_name'] = $table['Comment'];
+            $table['Comment'] = $table['Name'];
         } else {
             $table['disp_name'] = $table['Name'];
         }
@@ -958,6 +980,11 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
         }
     }
 
+    if (isset($GLOBALS['using_bookmark_message'])) {
+        $GLOBALS['using_bookmark_message']->display();
+        unset($GLOBALS['using_bookmark_message']);
+    }
+
     // Corrects the tooltip text via JS if required
     // @todo this is REALLY the wrong place to do this - very unexpected here
     if (! $is_view && strlen($GLOBALS['table']) && $cfg['ShowTooltip']) {
@@ -984,7 +1011,7 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
 
     // In an Ajax request, $GLOBALS['cell_align_left'] may not be defined. Hence,
     // check for it's presence before using it
-    echo '<div align="' . ( isset($GLOBALS['cell_align_left']) ? $GLOBALS['cell_align_left'] : '' ) . '">' . "\n";
+    echo '<div id="result_query" align="' . ( isset($GLOBALS['cell_align_left']) ? $GLOBALS['cell_align_left'] : '' ) . '">' . "\n";
 
     if ($message instanceof PMA_Message) {
         if (isset($GLOBALS['special_message'])) {
@@ -1032,13 +1059,10 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
         } else {
             // Parse SQL if needed
             $parsed_sql = PMA_SQP_parse($query_base);
-            if (PMA_SQP_isError()) {
-                unset($parsed_sql);
-            }
         }
 
         // Analyze it
-        if (isset($parsed_sql)) {
+        if (isset($parsed_sql) && ! PMA_SQP_isError()) {
             $analyzed_display_query = PMA_SQP_analyze($parsed_sql);
             // Here we append the LIMIT added for navigation, to
             // enable its display. Adding it higher in the code
@@ -1106,10 +1130,11 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
             if (! empty($GLOBALS['validatequery'])) {
                 $explain_params['validatequery'] = 1;
             }
-
+            $is_select = false;
             if (preg_match('@^SELECT[[:space:]]+@i', $sql_query)) {
                 $explain_params['sql_query'] = 'EXPLAIN ' . $sql_query;
                 $_message = __('Explain SQL');
+                $is_select = true;
             } elseif (preg_match('@^EXPLAIN[[:space:]]+SELECT[[:space:]]+@i', $sql_query)) {
                 $explain_params['sql_query'] = substr($sql_query, 8);
                 $_message = __('Skip Explain SQL');
@@ -1228,14 +1253,14 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
         // in the tools div, only display the Inline link when not in ajax
         // mode because 1) it currently does not work and 2) we would
         // have two similar mechanisms on the page for the same goal
-        if ($GLOBALS['is_ajax_request'] === false) {
+        if ($is_select || $GLOBALS['is_ajax_request'] === false) {
         // see in js/functions.js the jQuery code attached to id inline_edit
         // document.write conflicts with jQuery, hence used $().append()
             echo "<script type=\"text/javascript\">\n" .
                 "//<![CDATA[\n" .
-                "$('.tools').append('[<a href=\"#\" title=\"" .
+                "$('.tools form').last().after('[<a href=\"#\" title=\"" .
                 PMA_escapeJsString(__('Inline edit of this query')) .
-                "\" id=\"inline_edit\">" .
+                "\" class=\"inline_edit_sql\">" .
                 PMA_escapeJsString(__('Inline')) .
                 "</a>]');\n" .
                 "//]]>\n" .
@@ -1244,7 +1269,10 @@ function PMA_showMessage($message, $sql_query = null, $type = 'notice', $is_view
         echo $edit_link . $explain_link . $php_link . $refresh_link . $validate_link;
         echo '</div>';
     }
-    echo '</div><br />' . "\n";
+    echo '</div>';
+    if ($GLOBALS['is_ajax_request'] === false) {
+        echo '<br class="clearfloat" />';
+    }
 
     // If we are in an Ajax request, we have most probably been called in
     // PMA_ajaxResponse().  Hence, collect the buffer contents and return it
@@ -1632,10 +1660,7 @@ function PMA_generate_html_tab($tab, $url_params = array())
 
     // determine additionnal style-class
     if (empty($tab['class'])) {
-        if ($tab['text'] == __('Empty')
-            || $tab['text'] == __('Drop')) {
-            $tab['class'] = 'caution';
-        } elseif (! empty($tab['active'])
+        if (! empty($tab['active'])
          || PMA_isValid($GLOBALS['active_page'], 'identical', $tab['link'])) {
             $tab['class'] = 'active';
         } elseif (is_null($tab['active']) && empty($GLOBALS['active_page'])
@@ -1646,7 +1671,7 @@ function PMA_generate_html_tab($tab, $url_params = array())
     }
 
     if (!empty($tab['warning'])) {
-        $tab['class'] .= ' warning';
+        $tab['class'] .= ' error';
         $tab['attr'] .= ' title="' . htmlspecialchars($tab['warning']) . '"';
     }
 
@@ -1723,7 +1748,7 @@ function PMA_generate_html_tabs($tabs, $url_params)
         .'<ul id="' . htmlentities($tag_id) . '">' . "\n";
 
     foreach ($tabs as $tab) {
-        $tab_navigation .= PMA_generate_html_tab($tab, $url_params) . "\n";
+        $tab_navigation .= PMA_generate_html_tab($tab, $url_params);
     }
 
     $tab_navigation .=
@@ -1845,7 +1870,14 @@ function PMA_linkOrButton($url, $message, $tag_params = array(),
                     . implode(' ', $tag_params_strings)
                     . ' src="' . preg_replace(
                         '/^.*\ssrc="([^"]*)".*$/si', '\1', $message) . '"'
-                    . ' value="' . $displayed_message . '" title="' . $displayed_message . '" />';
+                        . ' value="' . $displayed_message . '" title="' . $displayed_message . '" />';
+                // Here we cannot obey PropertiesIconic completely as a
+                // generated link would have a length over LinkLengthLimit
+                // but we can at least show the message.
+                // If PropertiesIconic is false or 'both'
+                if ($GLOBALS['cfg']['PropertiesIconic'] !== true) {
+                    $ret .= ' <span class="clickprevimage">' . $displayed_message . '</span>';
+                }
             }
         } else {
             $message = trim(strip_tags($message));
@@ -2145,11 +2177,14 @@ function PMA_getUniqueCondition($handle, $fields_cnt, $fields_meta, $row, $force
  * @access  public
  */
 function PMA_buttonOrImage($button_name, $button_class, $image_name, $text,
-    $image)
+    $image, $value = '')
 {
+    if ($value == '') {
+        $value = $text;
+    }
     if (false === $GLOBALS['cfg']['PropertiesIconic']) {
         echo ' <input type="submit" name="' . $button_name . '"'
-                .' value="' . htmlspecialchars($text) . '"'
+                .' value="' . htmlspecialchars($value) . '"'
                 .' title="' . htmlspecialchars($text) . '" />' . "\n";
         return;
     }
@@ -2158,13 +2193,13 @@ function PMA_buttonOrImage($button_name, $button_class, $image_name, $text,
     /* IE has trouble with <button> */
     if (PMA_USR_BROWSER_AGENT != 'IE') {
         echo '<button class="' . $button_class . '" type="submit"'
-            .' name="' . $button_name . '" value="' . htmlspecialchars($text) . '"'
+            .' name="' . $button_name . '" value="' . htmlspecialchars($value) . '"'
             .' title="' . htmlspecialchars($text) . '">' . "\n"
             . PMA_getIcon($image, $text)
             .'</button>' . "\n";
     } else {
         echo '<input type="image" name="' . $image_name . '" value="'
-            . htmlspecialchars($text) . '" title="' . htmlspecialchars($text) . '" src="' . $GLOBALS['pmaThemeImage']
+            . htmlspecialchars($value) . '" title="' . htmlspecialchars($text) . '" src="' . $GLOBALS['pmaThemeImage']
             . $image . '" />'
             . ($GLOBALS['cfg']['PropertiesIconic'] === 'both' ? '&nbsp;' . htmlspecialchars($text) : '') . "\n";
     }
@@ -2173,9 +2208,7 @@ function PMA_buttonOrImage($button_name, $button_class, $image_name, $text,
 /**
  * Generate a pagination selector for browsing resultsets
  *
- * @todo $url is not javascript escaped!?
  * @uses    range()
- * @param   string      URL for the JavaScript
  * @param   string      Number of rows in the pagination set
  * @param   string      current page number
  * @param   string      number of total pages
@@ -2195,7 +2228,7 @@ function PMA_buttonOrImage($button_name, $button_class, $image_name, $text,
  *
  * @access  public
  */
-function PMA_pageselector($url, $rows, $pageNow = 1, $nbTotalPage = 1,
+function PMA_pageselector($rows, $pageNow = 1, $nbTotalPage = 1,
     $showAll = 200, $sliceStart = 5, $sliceEnd = 5, $percent = 20,
     $range = 10, $prompt = '')
 {
@@ -2203,8 +2236,11 @@ function PMA_pageselector($url, $rows, $pageNow = 1, $nbTotalPage = 1,
     $pageNowMinusRange = ($pageNow - $range);
     $pageNowPlusRange = ($pageNow + $range);
 
-    $gotopage = $prompt
-              . ' <select id="pageselector" name="pos" >' . "\n";
+    $gotopage = $prompt . ' <select id="pageselector" ';
+    if ($GLOBALS['cfg']['AjaxEnable']) {
+        $gotopage .= ' class="ajax"';
+    }
+    $gotopage .= ' name="pos" >' . "\n";
     if ($nbTotalPage < $showAll) {
         $pages = range(1, $nbTotalPage);
     } else {
@@ -2320,7 +2356,6 @@ function PMA_listNavigator($count, $pos, $_url_params, $script, $frame, $max_cou
         echo "\n", '<form action="./', basename($script), '" method="post" target="', $frame, '">', "\n";
         echo PMA_generate_common_hidden_inputs($_url_params);
         echo PMA_pageselector(
-            $script . PMA_generate_common_url($_url_params) . '&amp;',
                 $max_count,
                 floor(($pos + 1) / $max_count) + 1,
                 ceil($count / $max_count));
@@ -2425,7 +2460,7 @@ function PMA_getDbLink($database = null)
 function PMA_externalBug($functionality, $component, $minimum_version, $bugref)
 {
     if ($component == 'mysql' && PMA_MYSQL_INT_VERSION < $minimum_version) {
-        echo PMA_showHint(sprintf(__('The %s functionality is affected by a known bug, see %s'), $functionality, 'http://bugs.mysql.com/' . $bugref));
+        echo PMA_showHint(sprintf(__('The %s functionality is affected by a known bug, see %s'), $functionality, PMA_linkURL('http://bugs.mysql.com/') . $bugref));
     }
 }
 
@@ -2524,41 +2559,15 @@ function PMA_generate_slider_effect($id, $message)
      * maybe by using an additional param, the id of the div to append to
      */
     ?>
-<div id="<?php echo $id; ?>" <?php echo $GLOBALS['cfg']['InitialSlidersState'] == 'closed' ? ' style="display: none; overflow:auto;"' : ''; ?>>
-    <script type="text/javascript">
-// <![CDATA[
-
-    function PMA_set_status_label_<?php echo $id; ?>() {
-        if ($('#<?php echo $id; ?>').css('display') == 'none') {
-            $('#anchor_status_<?php echo $id; ?>').text('+ ');
-        } else {
-            $('#anchor_status_<?php echo $id; ?>').text('- ');
-        }
-    }
-
-    $(document).ready(function() {
-
-        $('<span id="anchor_status_<?php echo $id; ?>"><span>')
-            .insertBefore('#<?php echo $id; ?>')
-
-        PMA_set_status_label_<?php echo $id; ?>();
-
-        $('<a href="#<?php echo $id; ?>" id="anchor_<?php echo $id; ?>"><?php echo htmlspecialchars($message); ?></a>')
-            .insertBefore('#<?php echo $id; ?>')
-            .click(function() {
-                // the callback should be the 4th parameter but
-                // it only works as the second parameter
-                $('#<?php echo $id; ?>').toggle('drop', function() {
-                    PMA_set_status_label_<?php echo $id; ?>();
-                });
-            });
-    });
-    //]]>
-    </script>
-    <noscript>
-    <div id="<?php echo $id; ?>"></div>
-    </noscript>
+<div id="<?php echo $id; ?>" <?php echo $GLOBALS['cfg']['InitialSlidersState'] == 'closed' ? ' style="display: none; overflow:auto;"' : ''; ?> class="pma_auto_slider" title="<?php echo htmlspecialchars($message); ?>">
     <?php
+}
+
+/**
+ * Clears cache content which needs to be refreshed on user change.
+ */
+function PMA_clearUserCache() {
+    PMA_cacheUnset('is_superuser', true);
 }
 
 /**
@@ -2933,11 +2942,15 @@ function PMA_ajaxResponse($message, $success = true, $extra_data = array())
         $response = array_merge($response, $extra_data);
     }
 
-    // Set the Content-Type header to JSON so that jQuery parses the response correctly
-    if(!isset($GLOBALS['is_header_sent'])) {
-        header('Cache-Control: no-cache');
-        header("Content-Type: application/json");
-    }
+    // Set the Content-Type header to JSON so that jQuery parses the
+    // response correctly.
+    //
+    // At this point, other headers might have been sent;
+    // even if $GLOBALS['is_header_sent'] is true,
+    // we have to send these additional headers.
+    header('Cache-Control: no-cache');
+    header("Content-Type: application/json");
+
     echo json_encode($response);
     exit;
 }
@@ -2980,7 +2993,7 @@ function PMA_selectUploadFile($import_list, $uploaddir) {
         echo $files;
         echo '    </select>' . "\n";
     } elseif (empty ($files)) {
-        echo '<i>There are no files to upload</i>';
+        echo '<i>' . __('There are no files to upload') . '</i>';
     }
 }
 
@@ -3004,6 +3017,7 @@ function PMA_buildActionTitles() {
     $titles['NoDrop']     = PMA_getIcon('bd_drop.png', __('Drop'), true);
     $titles['Empty']      = PMA_getIcon('b_empty.png', __('Empty'), true);
     $titles['NoEmpty']    = PMA_getIcon('bd_empty.png', __('Empty'), true);
+    $titles['Edit']       = PMA_getIcon('b_edit.png', __('Edit'), true);
     return $titles;
 }
 ?>

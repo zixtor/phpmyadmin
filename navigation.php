@@ -49,22 +49,6 @@ require_once './libraries/common.inc.php';
  */
 function PMA_exitNavigationFrame()
 {
-    $params = array('uniqid' => uniqid());
-    if (!empty($GLOBALS['db'])) {
-        $params['db'] = $GLOBALS['db'];
-    }
-    echo '<div id="reloadlink">' . "\n";
-    echo '<a href="navigation.php' . PMA_generate_common_url($params) . '" target="frame_navigation">';
-    if ($GLOBALS['cfg']['NavigationBarIconic']) {
-        echo '<img class="icon" src="'. $GLOBALS['pmaThemeImage'] . 's_reload.png"'
-            . ' title="' . __('Reload navigation frame') . '"'
-            . ' alt="' . __('Reload navigation frame') . '" />';
-    }
-    if ($GLOBALS['cfg']['NavigationBarIconic'] !== true) {
-        echo __('Reload navigation frame');
-    }
-    echo '</a>';
-    echo '</div>' . "\n";
     echo '</body></html>';
     exit;
 }
@@ -142,7 +126,7 @@ require_once './libraries/header_http.inc.php';
     <base target="frame_content" />
     <link rel="stylesheet" type="text/css"
         href="phpmyadmin.css.php?<?php echo PMA_generate_common_url('', ''); ?>&amp;js_frame=left&amp;nocache=<?php echo $GLOBALS['PMA_Config']->getThemeUniqueValue(); ?>" />
-    <script src="./js/jquery/jquery-1.4.2.js" type="text/javascript"></script>
+    <script src="./js/jquery/jquery-1.4.4.js" type="text/javascript"></script>
     <script type="text/javascript" src="js/navigation.js"></script>
     <script type="text/javascript" src="js/functions.js"></script>
     <script type="text/javascript">
@@ -251,9 +235,9 @@ if (! $GLOBALS['server']) {
 //    In this case, the database should not be collapsible/expandable
 
 $img_plus = '<img class="icon" id="el%dImg" src="' . $pmaThemeImage . 'b_plus.png"'
-    .' width="9" height="9" alt="+" />';
+    .' alt="+" />';
 $img_minus = '<img class="icon" id="el%dImg" src="' . $pmaThemeImage . 'b_minus.png"'
-    .' width="9" height="9" alt="-" />';
+    .' alt="-" />';
 
 $href_left = '<a onclick="if (toggle(\'%d\')) return false;"'
     .' href="navigation.php?%s" target="_self">';
@@ -262,8 +246,8 @@ $element_counter = 0;
 
 
 if ($GLOBALS['cfg']['LeftFrameLight'] && strlen($GLOBALS['db'])) {
-    $table_list = PMA_getTableList($GLOBALS['db']);
-    $table_count = count($table_list);
+    $table_list = PMA_getTableList($GLOBALS['db'], null, $tpos, $cfg['MaxTableList']);
+    $table_count = PMA_getTableCount($GLOBALS['db']);
 
     // show selected databasename as link to DefaultTabDatabase-page
     // with table count in ()
@@ -289,8 +273,8 @@ if ($GLOBALS['cfg']['LeftFrameLight'] && strlen($GLOBALS['db'])) {
     if ($table_count >= $GLOBALS['cfg']['LeftDisplayTableFilterMinimum']) {
         ?>
         <span id="NavFilter">
-        <input type="text" name="fast_filter" id="fast_filter" title="<?php echo __('Filter'); ?>" value="<?php echo __('filter tables by name'); ?>" />
         <span id="clear_fast_filter" title="<?php echo __('Clear'); ?>">X</span>
+            <input type="text" name="fast_filter" id="fast_filter" title="<?php echo __('Filter'); ?>" value="<?php echo __('filter tables by name'); ?>" />
         </span>
         <?php
     }
@@ -300,7 +284,6 @@ if ($GLOBALS['cfg']['LeftFrameLight'] && strlen($GLOBALS['db'])) {
      * user can find a navigator to page thru all tables.
      *
      */
-    $table_list = array_slice($table_list, $tpos, $cfg['MaxTableList']);
     if (! empty($table_list)) {
         // upper table list paginator
         if (count($table_list) <= $GLOBALS['cfg']['MaxTableList'] && $table_count > $GLOBALS['cfg']['MaxTableList']) {
@@ -320,11 +303,16 @@ if ($GLOBALS['cfg']['LeftFrameLight'] && strlen($GLOBALS['db'])) {
         echo __('No tables found in database.');
     }
     unset($table_list);
-    echo '<ul id="newtable"><li><a target="frame_content" href="tbl_create.php' . PMA_generate_common_url(array('db' => $GLOBALS['db'])) . '">'
-        .'<img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_snewtbl.png" id="icon_newtable" width="10" height="10" alt="' . _pgettext('short form', 'Create table') . '" />'
-        . _pgettext('short form', 'Create table') . '</a></li></ul>';
+    if ($db != 'information_schema') {
+        echo '<ul id="newtable"><li><a target="frame_content" href="tbl_create.php' . PMA_generate_common_url(array('db' => $GLOBALS['db'])) . '">'
+            .'<img class="icon" src="' . $GLOBALS['pmaThemeImage'] . 'b_snewtbl.png" id="icon_newtable" alt="' . _pgettext('short form', 'Create table') . '" />'
+            . _pgettext('short form', 'Create table') . '</a></li></ul>';
+    }
 } elseif ($GLOBALS['cfg']['LeftFrameLight']) {
-    echo '<p>' . __('Please select a database') . '</p>';
+    /* No need to tell user to select database if we're showing complete list */
+    if (!$list) {
+        echo '<p>' . __('Please select a database') . '</p>';
+    }
 } else {
     echo '<div id="databaseList">' . "\n";
     $_url_params = array('pos' => $pos);
@@ -436,18 +424,23 @@ function PMA_displayDbList($ext_dblist, $offset, $count) {
                             . '?' . $common_url_query; ?>', 'main');
                         return false;">
                     <?php
-                    if ($GLOBALS['text_dir'] === 'rtl') {
-                        echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                    // Might be unset if CountTables directive is false
+                    if (isset($db['num_tables'])) {
+                        if ($GLOBALS['text_dir'] === 'rtl') {
+                            echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                        }
                     }
                     echo htmlspecialchars($db['disp_name']);
-                    if ($GLOBALS['text_dir'] === 'ltr') {
-                        echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                    if (isset($db['num_tables'])) {
+                        if ($GLOBALS['text_dir'] === 'ltr') {
+                            echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                        }
                     }
                     ?>
                 </a>
                 <?php
             } else {
-                // with only 1 db available we dont need to refresh left frame
+                // with only 1 db available we dont need to refresh navi frame
                 // on db selection, only phpmain
                 ?>
                 <a href="<?php echo $GLOBALS['cfg']['DefaultTabDatabase']
@@ -455,18 +448,22 @@ function PMA_displayDbList($ext_dblist, $offset, $count) {
                     id="<?php echo htmlspecialchars($db['name']); ?>"
                     title="<?php echo htmlspecialchars($db['comment']); ?>">
                     <?php
-                    if ($GLOBALS['text_dir'] === 'rtl') {
-                        echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                    if (isset($db['num_tables'])) {
+                        if ($GLOBALS['text_dir'] === 'rtl') {
+                            echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                        }
                     }
                     echo htmlspecialchars($db['disp_name']);
-                    if ($GLOBALS['text_dir'] === 'ltr') {
-                        echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                    if (isset($db['num_tables'])) {
+                        if ($GLOBALS['text_dir'] === 'ltr') {
+                            echo ' <bdo dir="ltr">(' . $db['num_tables'] . ')</bdo> ';
+                        }
                     }
                     ?>
                 </a>
                 <?php
             }
-            if ($db['num_tables']) {
+            if (($GLOBALS['cfg']['Server']['CountTables'] === false) || $db['num_tables']) {
                 if (isset($tables_full[$db['name']])) {
                     $tables = PMA_getTableList($db['name'], $tables_full[$db['name']]);
                 } elseif (isset($tables_full[strtolower($db['name'])])) {
@@ -628,13 +625,14 @@ function PMA_displayTableList($tables, $visible = false,
                 .'&amp;goto=' . $GLOBALS['cfg']['LeftDefaultTabTable']
                 . '" >'
                 .'<img class="icon"';
-            if ('VIEW' === strtoupper($table['Comment'])) {
+
+            if (PMA_Table::isView($table_db, $table['Name'])) {
                 echo ' src="' . $GLOBALS['pmaThemeImage'] . 's_views.png"';
             } else {
                 echo ' src="' . $GLOBALS['pmaThemeImage'] . 'b_sbrowse.png"';
             }
             echo ' id="icon_' . htmlspecialchars($table_db . '.' . $table['Name']) . '"'
-                .' width="10" height="10" alt="' . htmlspecialchars($link_title) . '" /></a>' . "\n";
+                .' alt="' . htmlspecialchars($link_title) . '" /></a>' . "\n";
 
             // link for the table name itself
             $href = $GLOBALS['cfg']['DefaultTabTable'] . '?'

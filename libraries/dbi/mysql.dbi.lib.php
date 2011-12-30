@@ -63,12 +63,12 @@ function PMA_DBI_connect($user, $password, $is_controluser = false, $server = nu
             ? false
             : true;
     } else {
-	  $server_port   = (empty($cfg['Server']['port']))
-                   ? ''
-                   : ':' . (int)$cfg['Server']['port'];
-	  $server_socket = (empty($cfg['Server']['socket']))
-                   ? ''
-                   : ':' . $cfg['Server']['socket'];
+        $server_port   = (empty($cfg['Server']['port']))
+            ? ''
+            : ':' . (int)$cfg['Server']['port'];
+        $server_socket = (empty($cfg['Server']['socket']))
+            ? ''
+            : ':' . $cfg['Server']['socket'];
     }
 
     if (strtolower($cfg['Server']['connect_type']) == 'tcp') {
@@ -97,11 +97,11 @@ function PMA_DBI_connect($user, $password, $is_controluser = false, $server = nu
 
       // Retry with empty password if we're allowed to
         if (empty($link) && $cfg['Server']['nopassword'] && !$is_controluser) {
-	        $link = PMA_DBI_real_connect($cfg['Server']['host'] . $server_port . $server_socket, $user, '', empty($client_flags) ? NULL : $client_flags);
+            $link = PMA_DBI_real_connect($cfg['Server']['host'] . $server_port . $server_socket, $user, '', empty($client_flags) ? NULL : $client_flags);
         }
     } else {
         if (!isset($server['host'])) {
-	        $link = PMA_DBI_real_connect($server_socket, $user, $password, NULL, $server_persistant);
+            $link = PMA_DBI_real_connect($server_socket, $user, $password, NULL, $server_persistant);
         } else {
             $link = PMA_DBI_real_connect($server['host'] . $server_port . $server_socket, $user, $password, NULL, $server_persistant);
         }
@@ -154,7 +154,7 @@ function PMA_DBI_select_db($dbname, $link = null)
  * @param integer $options
  * @return mixed
  */
-function PMA_DBI_try_query($query, $link = null, $options = 0)
+function PMA_DBI_try_query($query, $link = null, $options = 0, $cache_affected_rows = true)
 {
     if (empty($link)) {
         if (isset($GLOBALS['userlink'])) {
@@ -173,6 +173,10 @@ function PMA_DBI_try_query($query, $link = null, $options = 0)
         $r = mysql_unbuffered_query($query, $link);
     } else {
         $r = mysql_query($query, $link);
+    }
+
+    if ($cache_affected_rows) {
+       $GLOBALS['cached_affected_rows'] = PMA_DBI_affected_rows($link, $get_from_cache = false);
     }
 
     if ($GLOBALS['cfg']['DBG']['sql']) {
@@ -388,17 +392,24 @@ function PMA_DBI_insert_id($link = null)
             return false;
         }
     }
-    //$insert_id = mysql_insert_id($link);
-    // if the primary key is BIGINT we get an incorrect result
+    // If the primary key is BIGINT we get an incorrect result
     // (sometimes negative, sometimes positive)
     // and in the present function we don't know if the PK is BIGINT
     // so better play safe and use LAST_INSERT_ID()
     //
-    // by the way, no problem with mysqli_insert_id()
     return PMA_DBI_fetch_value('SELECT LAST_INSERT_ID();', 0, 0, $link);
 }
 
-function PMA_DBI_affected_rows($link = null)
+/**
+ * returns the number of rows affected by last query
+ *
+ * @uses    $GLOBALS['userlink']
+ * @uses    mysql_affected_rows()
+ * @param   object mysql   $link   the mysql object
+ * @param   boolean        $get_from_cache
+ * @return  string integer
+ */
+function PMA_DBI_affected_rows($link = null, $get_from_cache = true)
 {
     if (empty($link)) {
         if (isset($GLOBALS['userlink'])) {
@@ -407,18 +418,27 @@ function PMA_DBI_affected_rows($link = null)
             return false;
         }
     }
-    return mysql_affected_rows($link);
+
+    if ($get_from_cache) {
+        return $GLOBALS['cached_affected_rows'];
+    } else {
+        return mysql_affected_rows($link);
+    }
 }
 
 /**
- * @todo add missing keys like in from mysqli_query (orgname, orgtable, flags, decimals)
+ * @todo add missing keys like in from mysqli_query (decimals)
  */
 function PMA_DBI_get_fields_meta($result)
 {
     $fields       = array();
     $num_fields   = mysql_num_fields($result);
     for ($i = 0; $i < $num_fields; $i++) {
-        $fields[] = mysql_fetch_field($result, $i);
+        $field = mysql_fetch_field($result, $i);
+        $field->flags = mysql_field_flags($result, $i);
+        $field->orgtable = mysql_field_table($result, $i);
+        $field->orgname = mysql_field_name($result, $i);
+        $fields[] = $field;
     }
     return $fields;
 }

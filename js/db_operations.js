@@ -25,13 +25,16 @@ $(document).ready(function() {
      *
      * @uses    $.PMA_confirm()
      * @uses    PMA_ajaxShowUser()
+     * @see     $cfg['AjaxEnable']
      */
-    $("#rename_db_form").live('submit', function(event) {
+    $("#rename_db_form.ajax").live('submit', function(event) {
         event.preventDefault();
 
-        var question = 'CREATE DATABASE ... and then DROP DATABASE ' + window.parent.db;
-        $(this).append('<input type="hidden" name="ajax_request" value="true" />');
+        var $form = $(this);
 
+        var question = escapeHtml('CREATE DATABASE ' + $('#new_db_name').val() + ' / DROP DATABASE ' + window.parent.db);
+
+        PMA_prepareForAjaxRequest($form);
         /**
          * @var button_options  Object containing options for jQueryUI dialog buttons
          */
@@ -43,7 +46,7 @@ $(document).ready(function() {
                                                 };
         button_options[PMA_messages['strNo']] = function() { $(this).dialog("close").remove(); }
 
-        $(this).PMA_confirm(question, $(this).attr('action'), function(url) {
+        $form.PMA_confirm(question, $form.attr('action'), function(url) {
             PMA_ajaxShowMessage(PMA_messages['strRenamingDatabases']);
 
             $.get(url, $("#rename_db_form").serialize() + '&is_js_confirmed=1', function(data) {
@@ -60,9 +63,9 @@ $(document).ready(function() {
                     .after(data.sql_query);
 
                     //Remove the empty notice div generated due to a NULL query passed to PMA_showMessage()
-                    var notice_class = $("#topmenucontainer").next("div").find('.notice');
-                    if($(notice_class).text() == '') {
-                        $(notice_class).remove();
+                    var $notice_class = $("#topmenucontainer").next("div").find('.notice');
+                    if ($notice_class.text() == '') {
+                        $notice_class.remove();
                     }
 
                     $("<span>" + PMA_messages['strReloadDatabase'] + "?</span>").dialog({
@@ -80,25 +83,39 @@ $(document).ready(function() {
      * Ajax Event Handler for 'Copy Database'
      *
      * @uses    PMA_ajaxShowMessage()
+     * @see     $cfg['AjaxEnable']
      */
-    $("#copy_db_form").live('submit', function(event) {
+    $("#copy_db_form.ajax").live('submit', function(event) {
         event.preventDefault();
 
-        PMA_ajaxShowMessage(PMA_messages['strCopyingDatabase']);
-        $(this).append('<input type="hidden" name="ajax_request" value="true" />');
+        var $msgbox = PMA_ajaxShowMessage(PMA_messages['strCopyingDatabase']);
 
-        $.get($(this).attr('action'), $(this).serialize(), function(data) {
+        var $form = $(this);
+        
+        PMA_prepareForAjaxRequest($form);
+
+        $.get($form.attr('action'), $form.serialize(), function(data) {
+            // use messages that stay on screen
+            $('.success').fadeOut();
+            $('.error').fadeOut();
             if(data.success == true) {
-                PMA_ajaxShowMessage(data.message);
+                $('#topmenucontainer').after(data.message);
                 if( $("#checkbox_switch").is(":checked")) {
                     window.parent.db = data.newname;
                     window.parent.refreshMain();
                     window.parent.refreshNavigation();
+               } else {
+                    // Here we force a refresh because the navigation
+                    // frame url is not changing so this function would
+                    // not refresh it
+                    window.parent.refreshNavigation(true);
                }
             }
             else {
-                PMA_ajaxShowMessage(data.error);
+                $('#topmenucontainer').after(data.error);
             }
+            
+            PMA_ajaxRemoveMessage($msgbox);
         }) // end $.get
     }) // end copy database
 
@@ -106,15 +123,18 @@ $(document).ready(function() {
      * Ajax Event handler for 'Change Charset' of the database
      *
      * @uses    PMA_ajaxShowMessage()
+     * @see     $cfg['AjaxEnable']
      */
-    $("#change_db_charset_form").live('submit', function(event) {
+    $("#change_db_charset_form.ajax").live('submit', function(event) {
         event.preventDefault();
 
-        $(this).append('<input type="hidden" name="ajax_request" value="true" />');
+        var $form = $(this);
+
+        PMA_prepareForAjaxRequest($form);
 
         PMA_ajaxShowMessage(PMA_messages['strChangingCharset']);
 
-        $.get($(this).attr('action'), $(this).serialize() + "&submitcollation=" + $(this).find("input[name=submitcollation]").attr('value'), function(data) {
+        $.get($form.attr('action'), $form.serialize() + "&submitcollation=" + $form.find("input[name=submitcollation]").attr('value'), function(data) {
             if(data.success == true) {
                 PMA_ajaxShowMessage(data.message);
             }

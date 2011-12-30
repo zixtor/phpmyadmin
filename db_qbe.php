@@ -18,26 +18,29 @@ $cfgRelation = PMA_getRelationsParam();
 
 
 /**
- * A query has been submitted -> execute it, else display the headers
+ * A query has been submitted -> (maybe) execute it
  */
+$message_to_display = false;
 if (isset($_REQUEST['submit_sql']) && ! empty($sql_query)) {
-    $goto      = 'db_sql.php';
-    $message_to_show = htmlspecialchars(__('Your SQL query has been executed successfully'));
-    require './sql.php';
-    exit;
-} else {
-    $sub_part  = '_qbe';
-    require './libraries/db_common.inc.php';
-    $url_query .= '&amp;goto=db_qbe.php';
-    $url_params['goto'] = 'db_qbe.php';
-    require './libraries/db_info.inc.php';
+    if (! preg_match('@^SELECT@i', $sql_query)) {
+        $message_to_display = true;
+    } else {
+        $goto      = 'db_sql.php';
+        require './sql.php';
+        exit;
+    }
 }
 
-if (isset($_REQUEST['submit_sql'])
- && ! preg_match('@^SELECT@i', $sql_query)) {
-    PMA_Message::warning(__('You have to choose at least one column to display'))->display();
-}
+$sub_part  = '_qbe';
+require './libraries/db_common.inc.php';
+$url_query .= '&amp;goto=db_qbe.php';
+$url_params['goto'] = 'db_qbe.php';
+require './libraries/db_info.inc.php';
 
+if ($message_to_display) {
+    PMA_Message::error(__('You have to choose at least one column to display'))->display();
+}
+unset($message_to_display);
 
 /**
  * Initialize some variables
@@ -176,16 +179,16 @@ function showColumnSelectCell($columns, $column_number, $selected = '')
     if (! empty($tab['fragment'])) {
         $tab['link'] .= $tab['fragment'];
     }
+    if (isset($tab_designer['link'])) {
 ?>
 <div id="visual_builder_anchor" class="notice hide">
 	<span id="footnote_1">
-<?php echo __('Switch to'); ?>
-	<form action="<?php echo $tab_designer['link'] ?>" method="post">
-		<input type="submit"  style="background-color:#FFD; border-width:0; color:#00F;   
-    	font-size: 15px;cursor: pointer" name="query" onmouseover="this.style.color='#F00';"
-            value="<?php echo __('visual builder'); ?>" onmouseout="this.style.color='#00F'"/></span>
-	</form>
+<?php echo __('Switch to') . ' <a href="' . $tab_designer['link'] . PMA_get_arg_separator('html') . 'query=1">' . __('visual builder') . '</a>'; ?>
+    </span>
 </div>
+<?php
+    }
+?>
 <form action="db_qbe.php" method="post">
 <fieldset>
 <table class="data" style="width: 100%;">

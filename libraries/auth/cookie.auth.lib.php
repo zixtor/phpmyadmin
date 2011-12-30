@@ -169,9 +169,9 @@ function PMA_auth()
     /* HTML header; do not show here the PMA version to improve security */
     $page_title = 'phpMyAdmin ';
     require './libraries/header_meta_style.inc.php';
+    // if $page_title is set, this script uses it as the title:
+    require './libraries/header_scripts.inc.php';
     ?>
-<script src="./js/jquery/jquery-1.4.2.js" type="text/javascript"></script>
-<script src="./js/update-location.js" type="text/javascript"></script>
 <script type="text/javascript">
 //<![CDATA[
 // show login form in top frame
@@ -180,7 +180,6 @@ if (top != self) {
 }
 //]]>
 </script>
-<script src="./js/functions.js" type="text/javascript"></script>
 </head>
 
 <body class="loginform">
@@ -192,7 +191,7 @@ if (top != self) {
     ?>
 
 <div class="container">
-<a href="http://www.phpmyadmin.net" target="_blank" class="logo"><?php
+<a href="<?php echo PMA_linkURL('http://www.phpmyadmin.net/'); ?>" target="_blank" class="logo"><?php
     $logo_image = $GLOBALS['pmaThemeImage'] . 'logo_right.png';
     if (@file_exists($logo_image)) {
         echo '<img src="' . $logo_image . '" id="imLogo" name="imLogo" alt="phpMyAdmin" border="0" />';
@@ -550,6 +549,10 @@ function PMA_auth_set_user()
     $cfg['Server']['user']     = $GLOBALS['PHP_AUTH_USER'];
     $cfg['Server']['password'] = $GLOBALS['PHP_AUTH_PW'];
 
+    // Avoid showing the password in phpinfo()'s output
+    unset($GLOBALS['PHP_AUTH_PW']);
+    unset($_SERVER['PHP_AUTH_PW']);
+
     $_SESSION['last_access_time'] = time();
 
     // Name and password cookies need to be refreshed each time
@@ -598,6 +601,12 @@ function PMA_auth_set_user()
          * whether we come from a fresh cookie login
          */
         define('PMA_COMING_FROM_COOKIE_LOGIN', true);
+
+        /**
+         * Clear user cache.
+         */
+        PMA_clearUserCache();
+
         PMA_sendHeaderLocation($redirect_url . PMA_generate_common_url($url_params, '&'));
         exit();
     } // end if

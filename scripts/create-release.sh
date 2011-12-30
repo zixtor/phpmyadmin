@@ -4,7 +4,7 @@
 #
 
 # More documentation about making a release is available at:
-# http://wiki.phpmyadmin.net/pma/Devel:Releasing
+# http://wiki.phpmyadmin.net/pma/Releasing
 
 # Fail on undefined variables
 set -u
@@ -60,7 +60,6 @@ Please ensure you have incremented rc count or version in the repository :
      - in Documentation.html the 2 lines
           " <title>phpMyAdmin $version - Documentation</title> "
           " <h1>phpMyAdmin $version Documentation</h1> "
-     - in translators.html
      - in README
 
 Continue (y/n)?
@@ -97,10 +96,6 @@ if ! grep -q "phpMyAdmin $version - Documentation" Documentation.html ; then
     echo "There seems to be wrong version in Documentation.html"
     exit 2
 fi
-if ! grep -q "phpMyAdmin $version - Official translators" translators.html ; then
-    echo "There seems to be wrong version in translators.html"
-    exit 2
-fi
 if ! grep -q "Version $version\$" README ; then
     echo "There seems to be wrong version in README"
     exit 2
@@ -124,6 +119,10 @@ fi
 if [ $GETTEXT -eq 1 ] ; then
     echo "* Generating mo files"
     ./scripts/generate-mo
+    if [ -f ./scripts/remove-incomplete-mo ] ; then
+        echo "* Removing incomplete translations"
+        ./scripts/remove-incomplete-mo
+    fi
     echo "* Removing gettext source files"
     rm -rf po
 fi
@@ -144,7 +143,7 @@ rm -rf test
 rm -rf scripts/google-javascript-compiler/
 
 # Remove scripts which are not useful for user
-for s in compress-js create-release.sh generate-mo mergepo.py php2gettext.sh remove_control_m.sh update-po upload-release ; do
+for s in compress-js create-release.sh generate-mo mergepo.py php2gettext.sh remove_control_m.sh update-po upload-release pending-po pendingpo.py ; do
     rm -f scripts/$s
 done
 
@@ -248,7 +247,11 @@ if [ $# -gt 0 ] ; then
                     else
                         # We update both branches here
                         # As it does not make sense to have older testing than stable
-                        mark_as_release $branch TESTING
+                        if echo $version | grep -q '^3\.3\.' ; then
+                            echo '* 3.3 branch, no TESTING update'
+                        else
+                            mark_as_release $branch TESTING
+                        fi
                         mark_as_release $branch STABLE
                     fi
                     git checkout master
@@ -296,7 +299,6 @@ Todo now:
         - in Documentation.html the 2 lines
               " <title>phpMyAdmin 2.2.2-rc1 - Documentation</title> "
               " <h1>phpMyAdmin 2.2.2-rc1 Documentation</h1> "
-        - in translators.html
 
  8. add a group for bug tracking this new version, at
     https://sourceforge.net/tracker/admin/index.php?group_id=23067&atid=377408&add_group=1
