@@ -14,6 +14,14 @@ require './libraries/server_links.inc.php';
 
 
 /**
+ * Displays the sub-page heading
+ */
+echo '<h2>' . "\n"
+   . ($GLOBALS['cfg']['MainPageIconic'] ? '<img src="' . $pmaThemeImage . 's_process.png" width="16" height="16" border="0" hspace="2" align="middle" alt="" />' : '')
+   . '    ' . __('Processes') . "\n"
+   . '</h2>' . "\n";
+
+/**
  * Kills a selected process
  */
 if (!empty($_REQUEST['kill'])) {
@@ -44,11 +52,16 @@ $result = PMA_DBI_query($sql_query);
 ?>
 <table id="tableprocesslist" class="data">
 <thead>
-<tr><td><a href="<?php echo $full_text_link; ?>"
+<tr>
+    <?php if (!PMA_DRIZZLE): ?>
+    <th><a href="<?php echo $full_text_link; ?>"
             title="<?php echo empty($full) ? __('Show Full Queries') : __('Truncate Shown Queries'); ?>">
         <img src="<?php echo $pmaThemeImage . 's_' . (empty($_REQUEST['full']) ? 'full' : 'partial'); ?>text.png"
-            width="50" height="20" alt="<?php echo empty($_REQUEST['full']) ? __('Show Full Queries') : __('Truncate Shown Queries'); ?>" />
-        </a></td>
+            alt="<?php echo empty($_REQUEST['full']) ? __('Show Full Queries') : __('Truncate Shown Queries'); ?>" />
+        </a></th>
+    <?php else: ?>
+    <th></th>
+    <?php endif; ?>
     <th><?php echo __('ID'); ?></th>
     <th><?php echo __('User'); ?></th>
     <th><?php echo __('Host'); ?></th>
@@ -63,10 +76,19 @@ $result = PMA_DBI_query($sql_query);
 <?php
 $odd_row = true;
 while($process = PMA_DBI_fetch_assoc($result)) {
+    if (PMA_DRIZZLE) {
+        // Drizzle uses uppercase keys
+        foreach ($process as $k => $v) {
+            $k = $k !== 'DB'
+                ? $k = ucfirst(strtolower($k))
+                : 'db';
+            $process[$k] = $v;
+        }
+    }
     $url_params['kill'] = $process['Id'];
     $kill_process = 'server_processlist.php' . PMA_generate_common_url($url_params);
     ?>
-<tr class="<?php echo $odd_row ? 'odd' : 'even'; ?>">
+<tr class="noclick <?php echo $odd_row ? 'odd' : 'even'; ?>">
     <td><a href="<?php echo $kill_process ; ?>"><?php echo __('Kill'); ?></a></td>
     <td class="value"><?php echo $process['Id']; ?></td>
     <td><?php echo $process['User']; ?></td>

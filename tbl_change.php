@@ -43,6 +43,9 @@ if (isset($_REQUEST['ShowFunctionFields'])) {
 if (isset($_REQUEST['ShowFieldTypesInDataEditView'])) {
     $cfg['ShowFieldTypesInDataEditView'] = $_REQUEST['ShowFieldTypesInDataEditView'];
 }
+if (isset($_REQUEST['default_action'])) {
+    $default_action = $_REQUEST['default_action'];
+}
 
 /**
  * file listing
@@ -184,12 +187,18 @@ if (isset($where_clause)) {
             }
             unset($unique_condition, $tmp_clause_is_unique);
         }
+
     }
 } else {
     // no primary key given, just load first row - but what happens if table is empty?
     $insert_mode = true;
     $result = PMA_DBI_query('SELECT * FROM ' . PMA_backquote($db) . '.' . PMA_backquote($table) . ' LIMIT 1;', null, PMA_DBI_QUERY_STORE);
     $rows = array_fill(0, $cfg['InsertRows'], false);
+}
+
+// Copying a row - fetched data will be inserted as a new row, therefore the where clause is needless.
+if (isset($default_action) && $default_action === 'insert') {
+    unset($where_clause, $where_clauses);
 }
 
 // retrieve keys into foreign fields, if any
@@ -285,7 +294,7 @@ foreach ($rows as $row_id => $vrow) {
     }
 
     $jsvkey = $row_id;
-    $browse_foreigners_uri = '&amp;pk=' . $row_id;
+    $rownumber_param = '&amp;rownumber=' . $row_id;
     $vkey = '[multi_edit][' . $jsvkey . ']';
 
     $vresult = (isset($result) && is_array($result) && isset($result[$row_id]) ? $result[$row_id] : $result);
@@ -370,10 +379,37 @@ foreach ($rows as $row_id => $vrow) {
                 $table_fields[$i]['Field_title'] = $table_fields[$i]['Field_html'];
             }
 
-            // The type column
-            $table_fields[$i]['is_binary'] = stristr($table_fields[$i]['Type'], 'binary');
-            $table_fields[$i]['is_blob']   = stristr($table_fields[$i]['Type'], 'blob');
-            $table_fields[$i]['is_char']   = stristr($table_fields[$i]['Type'], 'char');
+            // The type column.
+            // Fix for bug #3152931 'ENUM and SET cannot have "Binary" option'
+            // If check to ensure types such as "enum('one','two','binary',..)" or
+            // "enum('one','two','varbinary',..)" are not categorized as binary.
+            if (stripos($table_fields[$i]['Type'], 'binary') === 0
+            || stripos($table_fields[$i]['Type'], 'varbinary') === 0) {
+                $table_fields[$i]['is_binary'] = stristr($table_fields[$i]['Type'], 'binary');
+            } else {
+                $table_fields[$i]['is_binary'] = false;
+            }
+
+            // If check to ensure types such as "enum('one','two','blob',..)" or
+            // "enum('one','two','tinyblob',..)" etc. are not categorized as blob.
+            if (stripos($table_fields[$i]['Type'], 'blob') === 0
+            || stripos($table_fields[$i]['Type'], 'tinyblob') === 0
+            || stripos($table_fields[$i]['Type'], 'mediumblob') === 0
+            || stripos($table_fields[$i]['Type'], 'longblob') === 0) {
+                $table_fields[$i]['is_blob']   = stristr($table_fields[$i]['Type'], 'blob');
+            } else {
+                $table_fields[$i]['is_blob'] = false;
+            }
+
+            // If check to ensure types such as "enum('one','two','char',..)" or
+            // "enum('one','two','varchar',..)" are not categorized as char.
+            if (stripos($table_fields[$i]['Type'], 'char') === 0
+            || stripos($table_fields[$i]['Type'], 'varchar') === 0) {
+                $table_fields[$i]['is_char']   = stristr($table_fields[$i]['Type'], 'char');
+            } else {
+                $table_fields[$i]['is_char'] = false;
+            }
+
             $table_fields[$i]['first_timestamp'] = false;
             switch ($table_fields[$i]['True_Type']) {
                 case 'set':
@@ -406,13 +442,11 @@ foreach ($rows as $row_id => $vrow) {
             $field['len'] = PMA_DBI_field_len($vresult, $i);
         }
         //Call validation when the form submited...
-        $unnullify_trigger = $chg_evt_handler . "=\"return Validator('". PMA_escapeJsString($field['Field_md5']) . "', '"
+        $unnullify_trigger = $chg_evt_handler . "=\"return verificationsAfterFieldChange('". PMA_escapeJsString($field['Field_md5']) . "', '"
             . PMA_escapeJsString($jsvkey) . "','".$field['pma_type']."')\"";
 
         // Use an MD5 as an array index to avoid having special characters in the name atttibute (see bug #1746964 )
         $field_name_appendix =  $vkey . '[' . $field['Field_md5'] . ']';
-        $field_name_appendix_md5 = $field['Field_md5'] . $vkey . '[]';
-
 
         if ($field['Type'] == 'datetime'
          && ! isset($field['Default'])
@@ -423,14 +457,13 @@ foreach ($rows as $row_id => $vrow) {
             $vrow[$field['Field']] = date('Y-m-d H:i:s', time());
         }
         ?>
-        <tr class="<?php echo $odd_row ? 'odd' : 'even'; ?>">
+        <tr class="noclick <?php echo $odd_row ? 'odd' : 'even'; ?>">
             <td <?php echo ($cfg['LongtextDoubleTextarea'] && strstr($field['True_Type'], 'longtext') ? 'rowspan="2"' : ''); ?> align="center">
                 <?php echo $field['Field_title']; ?>
                 <input type="hidden" name="fields_name<?php echo $field_name_appendix; ?>" value="<?php echo $field['Field_html']; ?>"/>
             </td>
 <?php if ($cfg['ShowFieldTypesInDataEditView']) { ?>
-             <td align="center"<?php echo $field['wrap']; ?>><span class="column_type">
-                 <?php echo $field['pma_type']; ?></span>
+             <td align="center"<?php echo $field['wrap']; ?>><span class="column_type"><?php echo $field['pma_type']; ?></span>
              </td>
 
          <?php } //End if
@@ -464,6 +497,13 @@ foreach ($rows as $row_id => $vrow) {
 
                 $data            = $vrow[$field['Field']];
             } // end if... else...
+
+            //when copying row, it is useful to empty auto-increment column to prevent duplicate key error
+            if (isset($default_action) && $default_action === 'insert') {
+                if ($field['Key'] === 'PRI' && strpos($field['Extra'], 'auto_increment') !== FALSE) {
+                    $data = $special_chars_encoded = $special_chars = NULL;
+                }
+            }
             // If a timestamp field value is not included in an update
             // statement MySQL auto-update it to the current timestamp;
             // however, things have changed since MySQL 4.1, so
@@ -497,6 +537,9 @@ foreach ($rows as $row_id => $vrow) {
         $idindex  = ($o_rows * $fields_cnt) + $i + 1;
         $tabindex = $idindex;
 
+        // These GIS data types are not yet supported.
+        $no_support_types = array('geometry', 'point', 'linestring', 'polygon', 'multipoint', 'multilinestring', 'multipolygon', 'geometrycollection');
+
         // The function column
         // -------------------
         // We don't want binary data to be destroyed
@@ -507,7 +550,7 @@ foreach ($rows as $row_id => $vrow) {
             if (($cfg['ProtectBinary'] && $field['is_blob'] && !$is_upload)
              || ($cfg['ProtectBinary'] == 'all' && $field['is_binary'])) {
                 echo '        <td align="center">' . __('Binary') . '</td>' . "\n";
-            } elseif (strstr($field['True_Type'], 'enum') || strstr($field['True_Type'], 'set') || 'geometry' == $field['pma_type']) {
+            } elseif (strstr($field['True_Type'], 'enum') || strstr($field['True_Type'], 'set') || in_array($field['pma_type'], $no_support_types)) {
                 echo '        <td align="center">--</td>' . "\n";
             } else {
                 ?>
@@ -619,7 +662,7 @@ foreach ($rows as $row_id => $vrow) {
                 echo ' checked="checked"';
             }
             echo ' id="field_' . ($idindex) . '_2" />';
-            
+
             // nullify_code is needed by the js nullify() function
             if (strstr($field['True_Type'], 'enum')) {
                 if (strlen($field['Type']) > 20) {
@@ -638,7 +681,7 @@ foreach ($rows as $row_id => $vrow) {
             } else {
                 $nullify_code = '5';
             }
-            // to be able to generate calls to nullify() in jQuery 
+            // to be able to generate calls to nullify() in jQuery
             echo '<input type="hidden" class="nullify_code" name="nullify_code' . $field_name_appendix . '" value="' . $nullify_code . '" />';
             echo '<input type="hidden" class="hashed_field" name="hashed_field' . $field_name_appendix . '" value="' .  $field['Field_md5'] . '" />';
             echo '<input type="hidden" class="multi_edit" name="multi_edit' . $field_name_appendix . '" value="' . PMA_escapeJsString($vkey) . '" />';
@@ -651,37 +694,29 @@ foreach ($rows as $row_id => $vrow) {
         // HTML attribute
 
         echo '        <td>' . "\n";
+        // Will be used by js/tbl_change.js to set the default value
+        // for the "Continue insertion" feature
+        echo '<span class="default_value hide">' . $special_chars . '</span>';
         if ($foreignData['foreign_link'] == true) {
             echo $backup_field . "\n";
             ?>
             <input type="hidden" name="fields_type<?php echo $field_name_appendix; ?>"
                 value="foreign" />
-            <input type="hidden" name="fields<?php echo $field_name_appendix; ?>"
-                value="" id="field_<?php echo ($idindex); ?>_3A" />
-            <input type="text" name="field_<?php echo $field_name_appendix_md5; ?>"
+            <input type="text" name="fields<?php echo $field_name_appendix; ?>"
                 class="textfield" <?php echo $unnullify_trigger; ?>
                 tabindex="<?php echo ($tabindex + $tabindex_for_value); ?>"
                 id="field_<?php echo ($idindex); ?>_3"
                 value="<?php echo htmlspecialchars($data); ?>" />
-            <script type="text/javascript">
-            //<![CDATA[
-                document.writeln('<a target="_blank" onclick="window.open(this.href, \'foreigners\', \'width=640,height=240,scrollbars=yes,resizable=yes\'); return false"');
-                document.write(' href="browse_foreigners.php?');
-                document.write('<?php echo PMA_generate_common_url($db, $table); ?>');
-                document.writeln('&amp;field=<?php echo PMA_escapeJsString(urlencode($field['Field']) . $browse_foreigners_uri); ?>">');
-                document.writeln('<?php echo str_replace("'", "\'", $titles['Browse']); ?></a>');
-            //]]>
-            </script>
+                <a class="hide foreign_values_anchor" target="_blank" onclick="window.open(this.href, 'foreigners', 'width=640,height=240,scrollbars=yes,resizable=yes'); return false;" href="browse_foreigners.php?<?php echo PMA_generate_common_url($db, $table); ?>&amp;field=<?php echo PMA_escapeJsString(urlencode($field['Field']) . $rownumber_param); ?>"><?php echo str_replace("'", "\'", $titles['Browse']); ?></a>
             <?php
         } elseif (is_array($foreignData['disp_row'])) {
             echo $backup_field . "\n";
             ?>
             <input type="hidden" name="fields_type<?php echo $field_name_appendix; ?>"
                 value="foreign" />
-            <input type="hidden" name="fields<?php echo $field_name_appendix; ?>"
-                value="" id="field_<?php echo $idindex; ?>_3A" />
-            <select name="field_<?php echo $field_name_appendix_md5; ?>"
+            <select name="fields<?php echo $field_name_appendix; ?>"
                 <?php echo $unnullify_trigger; ?>
+                class="textfield"
                 tabindex="<?php echo ($tabindex + $tabindex_for_value); ?>"
                 id="field_<?php echo ($idindex); ?>_3">
                 <?php echo PMA_foreignDropdown($foreignData['disp_row'], $foreignData['foreign_field'], $foreignData['foreign_display'], $data, $cfg['ForeignKeyMaxLimit']); ?>
@@ -744,8 +779,9 @@ foreach ($rows as $row_id => $vrow) {
             // show dropdown or radio depend on length
             if (strlen($field['Type']) > 20) {
                 ?>
-                <select name="field_<?php echo $field_name_appendix_md5; ?>"
+                <select name="fields<?php echo $field_name_appendix; ?>"
                     <?php echo $unnullify_trigger; ?>
+                    class="textfield"
                     tabindex="<?php echo ($tabindex + $tabindex_for_value); ?>"
                     id="field_<?php echo ($idindex); ?>_3">
                     <option value="">&nbsp;</option>
@@ -772,7 +808,8 @@ foreach ($rows as $row_id => $vrow) {
                 $j = 0;
                 foreach ($field_enum_values as $enum_value) {
                     echo '            ';
-                    echo '<input type="radio" name="field_' . $field_name_appendix_md5 . '"';
+                    echo '<input type="radio" name="fields' . $field_name_appendix . '"';
+                    echo ' class="textfield"';
                     echo ' value="' . $enum_value['html'] . '"';
                     echo ' id="field_' . ($idindex) . '_3_'  . $j . '"';
                     echo $unnullify_trigger;
@@ -807,8 +844,8 @@ foreach ($rows as $row_id => $vrow) {
             echo $backup_field . "\n";
             ?>
                 <input type="hidden" name="fields_type<?php echo $field_name_appendix; ?>" value="set" />
-                <input type="hidden" name="fields<?php echo $field_name_appendix; ?>" value="" />
-                <select name="field_<?php echo $field_name_appendix_md5; ?>"
+                <select name="fields<?php echo $field_name_appendix . '[]'; ?>"
+                    class="textfield"
                     size="<?php echo $select_size; ?>"
                     multiple="multiple" <?php echo $unnullify_trigger; ?>
                     tabindex="<?php echo ($tabindex + $tabindex_for_value); ?>"
@@ -868,8 +905,8 @@ foreach ($rows as $row_id => $vrow) {
                 <?php
 
             } else {
-                // field size should be at least 4 and max 40
-                $fieldsize = min(max($field['len'], 4), 40);
+                // field size should be at least 4 and max $cfg['LimitChars']
+                $fieldsize = min(max($field['len'], 4), $cfg['LimitChars']);
                 echo "\n";
                 echo $backup_field . "\n";
                 ?>
@@ -934,7 +971,7 @@ foreach ($rows as $row_id => $vrow) {
             } // end if (web-server upload directory)
         } // end elseif (binary or blob)
 
-        elseif ('geometry' == $field['pma_type']) {
+        elseif (in_array($field['pma_type'], $no_support_types)) {
             // ignore this column to avoid changing it
         }
         else {
@@ -944,7 +981,7 @@ foreach ($rows as $row_id => $vrow) {
             if ($field['is_char'] && ($cfg['CharEditing'] == 'textarea' || strpos($data, "\n") !== FALSE)) {
                 echo "\n";
                 ?>
-                <textarea name="fields<?php echo $field_name_appendix; ?>"
+                <textarea class="char" name="fields<?php echo $field_name_appendix; ?>"
                     rows="<?php echo $cfg['CharTextareaRows']; ?>"
                     cols="<?php echo $cfg['CharTextareaCols']; ?>"
                     dir="<?php echo $text_dir; ?>"
@@ -954,10 +991,16 @@ foreach ($rows as $row_id => $vrow) {
                     ><?php echo $special_chars_encoded; ?></textarea>
                 <?php
             } else {
+                $the_class = 'textfield';
+                if ($field['pma_type'] == 'date') {
+                    $the_class .= ' datefield';
+                } elseif ($field['pma_type'] == 'datetime' || substr($field['pma_type'], 0, 9) == 'timestamp') {
+                    $the_class .= ' datetimefield';
+                }
                 ?>
                 <input type="text" name="fields<?php echo $field_name_appendix; ?>"
                     value="<?php echo $special_chars; ?>" size="<?php echo $fieldsize; ?>"
-                    class="textfield" <?php echo $unnullify_trigger; ?>
+                    class="<?php echo $the_class; ?>" <?php echo $unnullify_trigger; ?>
                     tabindex="<?php echo ($tabindex + $tabindex_for_value); ?>"
                     id="field_<?php echo ($idindex); ?>_3" />
                 <?php
@@ -985,24 +1028,6 @@ foreach ($rows as $row_id => $vrow) {
                     // the _3 suffix points to the date field
                     // the _2 suffix points to the corresponding NULL checkbox
                     // in dateFormat, 'yy' means the year with 4 digits
-                    ?>
-<script type="text/javascript">
-//<![CDATA[
-$(function() {
-    $('#field_<?php echo ($idindex); ?>_3').datepicker({
-    	duration: '',
-		time24h: true,
-		 stepMinutes: 1,
-        stepHours: 1,
-        <?php echo ($field['pma_type'] == 'date' ? "showTime: false,":"showTime: true,"); ?>
-        dateFormat: 'yy-mm-dd',
-		altTimeField: '',
-        constrainInput: false
-     });
-});
-//]]>
-</script>
-                    <?php
                 }
             }
         }
@@ -1018,7 +1043,7 @@ $(function() {
 ?>
     <br />
 
-    <fieldset>
+    <fieldset id="actions_panel">
     <table border="0" cellpadding="5" cellspacing="0">
     <tr>
         <td valign="middle" nowrap="nowrap">

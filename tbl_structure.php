@@ -21,19 +21,19 @@ $GLOBALS['js_include'][] = 'tbl_structure.js';
  * submit_mult_*_x comes from IE if <input type="img" ...> is used
  */
 if (isset($_REQUEST['submit_mult_change_x'])) {
-    $submit_mult = __('Change');
+    $submit_mult = 'change';
 } elseif (isset($_REQUEST['submit_mult_drop_x'])) {
-    $submit_mult = __('Drop');
+    $submit_mult = 'drop';
 } elseif (isset($_REQUEST['submit_mult_primary_x'])) {
-    $submit_mult = __('Primary');
+    $submit_mult = 'primary';
 } elseif (isset($_REQUEST['submit_mult_index_x'])) {
-    $submit_mult = __('Index');
+    $submit_mult = 'index';
 } elseif (isset($_REQUEST['submit_mult_unique_x'])) {
-    $submit_mult = __('Unique');
+    $submit_mult = 'unique';
 } elseif (isset($_REQUEST['submit_mult_fulltext_x'])) {
-    $submit_mult = __('Fulltext');
+    $submit_mult = 'ftext';
 } elseif (isset($_REQUEST['submit_mult_browse_x'])) {
-    $submit_mult = __('Browse');
+    $submit_mult = 'browse';
 } elseif (isset($_REQUEST['submit_mult'])) {
     $submit_mult = $_REQUEST['submit_mult'];
 } elseif (isset($_REQUEST['mult_btn']) && $_REQUEST['mult_btn'] == __('Yes')) {
@@ -45,7 +45,7 @@ if (isset($_REQUEST['submit_mult_change_x'])) {
 
 if (! empty($submit_mult) && isset($_REQUEST['selected_fld'])) {
     $err_url = 'tbl_structure.php?' . PMA_generate_common_url($db, $table);
-    if ($submit_mult == __('Browse')) {
+    if ($submit_mult == 'browse') {
         // browsing the table displaying only selected fields/columns
         $GLOBALS['active_page'] = 'sql.php';
         $sql_query = '';
@@ -121,9 +121,10 @@ foreach (PMA_Index::getFromTable($table, $db) as $index) {
 unset($index, $columns, $column_name, $dummy);
 
 // 3. Get fields
-$fields_rs   = PMA_DBI_query('SHOW FULL FIELDS FROM ' . PMA_backquote($table) . ';', null, PMA_DBI_QUERY_STORE);
+$fields_rs   = PMA_DRIZZLE
+			? PMA_DBI_query('SHOW COLUMNS FROM ' . PMA_backquote($table) . ';', null, PMA_DBI_QUERY_STORE)
+			: PMA_DBI_query('SHOW FULL FIELDS FROM ' . PMA_backquote($table) . ';', null, PMA_DBI_QUERY_STORE);
 $fields_cnt  = PMA_DBI_num_rows($fields_rs);
-
 
 // Get more complete field information
 // For now, this is done just for MySQL 4.1.2+ new TIMESTAMP options
@@ -162,14 +163,14 @@ $titles['BrowseDistinctValues'] = PMA_getIcon('b_browse.png', __('Browse distinc
 // hidden action titles (image and string)
 $hidden_titles = array();
 $hidden_titles['BrowseDistinctValues'] = PMA_getIcon('b_browse.png', __('Browse distinct values'), false, true);
-$hidden_titles['Primary']              = PMA_getIcon('b_primary.png', __('Primary'), false, true);
-$hidden_titles['NoPrimary']            = PMA_getIcon('bd_primary.png', __('Primary'), false, true);
-$hidden_titles['Index']                = PMA_getIcon('b_index.png', __('Index'), false, true);
-$hidden_titles['NoIndex']              = PMA_getIcon('bd_index.png', __('Index'), false, true);
-$hidden_titles['Unique']               = PMA_getIcon('b_unique.png', __('Unique'), false, true);
-$hidden_titles['NoUnique']             = PMA_getIcon('bd_unique.png', __('Unique'), false, true);
-$hidden_titles['IdxFulltext']          = PMA_getIcon('b_ftext.png', __('Fulltext'), false, true);
-$hidden_titles['NoIdxFulltext']        = PMA_getIcon('bd_ftext.png', __('Fulltext'), false, true);
+$hidden_titles['Primary']              = PMA_getIcon('b_primary.png', __('Add primary key'), false, true);
+$hidden_titles['NoPrimary']            = PMA_getIcon('bd_primary.png', __('Add primary key'), false, true);
+$hidden_titles['Index']                = PMA_getIcon('b_index.png', __('Add index'), false, true);
+$hidden_titles['NoIndex']              = PMA_getIcon('bd_index.png', __('Add index'), false, true);
+$hidden_titles['Unique']               = PMA_getIcon('b_unique.png', __('Add unique index'), false, true);
+$hidden_titles['NoUnique']             = PMA_getIcon('bd_unique.png', __('Add unique index'), false, true);
+$hidden_titles['IdxFulltext']          = PMA_getIcon('b_ftext.png', __('Add FULLTEXT index'), false, true);
+$hidden_titles['NoIdxFulltext']        = PMA_getIcon('bd_ftext.png', __('Add FULLTEXT index'), false, true);
 
 /**
  * Displays the table structure ('show table' works correct since 3.23.03)
@@ -244,6 +245,7 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
     $type             = $row['Type'];
     $extracted_fieldspec = PMA_extractFieldSpec($row['Type']);
 
+    $truncated = false;
     if ('set' == $extracted_fieldspec['type'] || 'enum' == $extracted_fieldspec['type']) {
         $type         = $extracted_fieldspec['type'] . '(' .
             str_replace("','", "', '", $extracted_fieldspec['spec_in_brackets']) . ')';
@@ -251,7 +253,8 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
         // for the case ENUM('&#8211;','&ldquo;')
         $type         = htmlspecialchars($type);
         if(strlen($type) > $GLOBALS['cfg']['LimitChars']) {
-            $type = '<abbr title="full text">' . substr($type, 0, $GLOBALS['cfg']['LimitChars']) . '</abbr>';
+            $truncated = true;
+            $type = '<abbr title="' . $type . '">' . substr($type, 0, $GLOBALS['cfg']['LimitChars']) . '</abbr>';
         }
 
         $type_nowrap  = '';
@@ -291,7 +294,9 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
         || substr($type, 0, 8) == 'longtext'
         || substr($type, 0, 3) == 'set'
         || substr($type, 0, 4) == 'enum'
-        ) && !$binary) {
+        || ($truncated && substr($type, 13, 4) == 'enum'))
+        && !$binary
+    ) {
         if (strpos($type, ' character set ')) {
             $type = substr($type, 0, strpos($type, ' character set '));
         }
@@ -394,7 +399,7 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
             <?php echo $titles['Change']; ?></a>
     </td>
     <td align="center" class="drop">
-        <a class="drop_column_anchor" href="sql.php?<?php echo $url_query; ?>&amp;sql_query=<?php echo urlencode('ALTER TABLE ' . PMA_backquote($table) . ' DROP ' . PMA_backquote($row['Field'])); ?>&amp;dropped_column=<?php echo urlencode($row['Field']); ?>&amp;message_to_show=<?php echo urlencode(sprintf(__('Column %s has been dropped'), htmlspecialchars($row['Field']))); ?>" >
+        <a <?php echo ($GLOBALS['cfg']['AjaxEnable'] ? ' class="drop_column_anchor"' : ''); ?> href="sql.php?<?php echo $url_query; ?>&amp;sql_query=<?php echo urlencode('ALTER TABLE ' . PMA_backquote($table) . ' DROP ' . PMA_backquote($row['Field'])); ?>&amp;dropped_column=<?php echo urlencode($row['Field']); ?>&amp;message_to_show=<?php echo urlencode(sprintf(__('Column %s has been dropped'), htmlspecialchars($row['Field']))); ?>" >
             <?php echo $titles['Drop']; ?></a>
     </td>
     <td align="center" class="primary">
@@ -465,10 +470,9 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
         <?php
         } // end if... else...
         echo "\n";
-    } // end if (! $tbl_is_view && ! $db_is_information_schema)
-    ?>
+        ?>
     <td class="more_opts" id="more_opts<?php echo $rownum; ?>">
-        More <img src="<?php echo $pmaThemeImage . 'more.png'; ?>" alt="show more actions" />
+        <?php echo __('More'); ?> <img src="<?php echo $pmaThemeImage . 'more.png'; ?>" alt="<?php echo __('Show more actions'); ?>" />
         <div class="structure_actions_dropdown" id="row_<?php echo $rownum; ?>">
 
             <div class="action_browse">
@@ -476,7 +480,7 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
                     <?php echo $hidden_titles['BrowseDistinctValues']; ?>
                 </a>
             </div>
-            <div class="action_primary">
+            <div <?php echo ($GLOBALS['cfg']['AjaxEnable'] ? ' class="action_primary"' : ''); ?>>
                 <?php
                 if(isset($primary_enabled)) {
                      if($primary_enabled) { ?>
@@ -530,6 +534,9 @@ while ($row = PMA_DBI_fetch_assoc($fields_rs)) {
              </div>
         </div>
     </td>
+    <?php
+    } // end if (! $tbl_is_view && ! $db_is_information_schema)
+    ?>
 </tr>
     <?php
     unset($field_charset);
@@ -554,19 +561,19 @@ $checkall_url = 'tbl_structure.php?' . PMA_generate_common_url($db, $table);
 <i><?php echo __('With selected:'); ?></i>
 
 <?php
-PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_browse', __('Browse'), 'b_browse.png');
+PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_browse', __('Browse'), 'b_browse.png', 'browse');
 
 if (! $tbl_is_view && ! $db_is_information_schema) {
-    PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_change', __('Change'), 'b_edit.png');
-    PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_drop', __('Drop'), 'b_drop.png');
+    PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_change', __('Change'), 'b_edit.png', 'change');
+    PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_drop', __('Drop'), 'b_drop.png', 'drop');
     if ('ARCHIVE' != $tbl_type) {
-        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_primary', __('Primary'), 'b_primary.png');
-        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_unique', __('Unique'), 'b_unique.png');
-        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_index', __('Index'), 'b_index.png');
+        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_primary', __('Primary'), 'b_primary.png', 'primary');
+        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_unique', __('Unique'), 'b_unique.png', 'unique');
+        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_index', __('Index'), 'b_index.png', 'index');
     }
 
     if (! empty($tbl_type) && ($tbl_type == 'MYISAM' || $tbl_type == 'ARIA' || $tbl_type == 'MARIA')) {
-        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_fulltext', __('Fulltext'), 'b_ftext.png');
+        PMA_buttonOrImage('submit_mult', 'mult_submit', 'submit_mult_fulltext', __('Fulltext'), 'b_ftext.png', 'ftext');
     }
 }
 ?>
@@ -677,7 +684,7 @@ if (! $tbl_is_view && ! $db_is_information_schema && 'ARCHIVE' !=  $tbl_type) {
     ?>
 <br />
 <form action="./tbl_indexes.php" method="post"
-    onsubmit="return checkFormElementInRange(this, 'idx_num_fields',
+    onsubmit="return checkFormElementInRange(this, 'added_fields',
         '<?php echo str_replace('\'', '\\\'', __('Column count has to be larger than zero.')); ?>',
         1)">
 <fieldset>
@@ -686,18 +693,12 @@ if (! $tbl_is_view && ! $db_is_information_schema && 'ARCHIVE' !=  $tbl_type) {
     echo sprintf(__('Create an index on &nbsp;%s&nbsp;columns'),
         '<input type="text" size="2" name="added_fields" value="1" />');
     ?>
-    <input type="submit" name="create_index" value="<?php echo __('Go'); ?>"
-        onclick="return checkFormElementInRange(this.form,
-            'idx_num_fields',
-            '<?php echo str_replace('\'', '\\\'', __('Column count has to be larger than zero.')); ?>',
-            1)" />
+    <input type="submit" name="create_index" value="<?php echo __('Go'); ?>" />
 </fieldset>
 </form>
 <br />
     <?php
 }
-
-PMA_generate_slider_effect('tablestatistics', __('Details...'));
 
 /**
  * Displays Space usage and row statistics
@@ -705,6 +706,7 @@ PMA_generate_slider_effect('tablestatistics', __('Details...'));
 // BEGIN - Calc Table Space
 // Get valid statistics whatever is the table type
 if ($cfg['ShowStats']) {
+    echo '<div id="tablestatistics">';
     if (empty($showtable)) {
         $showtable = PMA_Table::sGetStatusInfo($GLOBALS['db'], $GLOBALS['table'], null, true);
     }
@@ -770,7 +772,7 @@ if ($cfg['ShowStats']) {
         }
         if (isset($free_size)) {
             ?>
-    <tr class="<?php echo ($odd_row = !$odd_row) ? 'odd' : 'even'; ?> warning">
+    <tr class="<?php echo ($odd_row = !$odd_row) ? 'odd' : 'even'; ?> error">
         <th class="name"><?php echo __('Overhead'); ?></th>
         <td class="value"><?php echo $free_size; ?></td>
         <td class="unit"><?php echo $free_unit; ?></td>
@@ -923,7 +925,7 @@ if ($cfg['ShowStats']) {
     </tbody>
     </table>
 
-    <!-- close slider div -->
+    <!-- close tablestatistics div -->
     </div>
 
     <?php

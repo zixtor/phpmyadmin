@@ -183,6 +183,66 @@ if (! isset($sql_backquotes)) {
 }
 
 /**
+ * Exports routines (procedures and functions) 
+ *
+ * @param   string      $db 
+ *
+ * @return  bool        Whether it suceeded
+ */
+function PMA_exportRoutines($db) {
+    global $crlf;
+
+    $text = '';
+    $delimiter = '$$';
+
+    $procedure_names = PMA_DBI_get_procedures_or_functions($db, 'PROCEDURE');
+    $function_names = PMA_DBI_get_procedures_or_functions($db, 'FUNCTION');
+
+    if ($procedure_names || $function_names) {
+        $text .= $crlf
+          . 'DELIMITER ' . $delimiter . $crlf;
+    }
+
+    if ($procedure_names) {
+        $text .=
+            PMA_exportComment()
+          . PMA_exportComment(__('Procedures'))
+          . PMA_exportComment();
+
+        foreach($procedure_names as $procedure_name) {
+            if (! empty($GLOBALS['sql_drop_table'])) {
+                $text .= 'DROP PROCEDURE IF EXISTS ' . PMA_backquote($procedure_name) . $delimiter . $crlf;
+            }
+            $text .= PMA_DBI_get_definition($db, 'PROCEDURE', $procedure_name) . $delimiter . $crlf . $crlf;
+        }
+    }
+
+    if ($function_names) {
+        $text .=
+            PMA_exportComment()
+          . PMA_exportComment(__('Functions'))
+          . PMA_exportComment();
+
+        foreach($function_names as $function_name) {
+            if (! empty($GLOBALS['sql_drop_table'])) {
+                $text .= 'DROP FUNCTION IF EXISTS ' . PMA_backquote($function_name) . $delimiter . $crlf;
+            }
+            $text .= PMA_DBI_get_definition($db, 'FUNCTION', $function_name) . $delimiter . $crlf . $crlf;
+        }
+    }
+
+    if ($procedure_names || $function_names) {
+        $text .= 'DELIMITER ;' . $crlf;
+    }
+
+    if (! empty($text)) {
+        return PMA_exportOutputHandler($text);
+    } else {
+        return false;
+    }
+}
+
+/**
  * Possibly outputs comment
  *
  * @param   string      Text of comment
@@ -375,54 +435,6 @@ function PMA_exportDBCreate($db)
         $result = PMA_exportOutputHandler('USE ' . $db . ';' . $crlf);
     }
 
-    if ($result && isset($GLOBALS['sql_structure']) && isset($GLOBALS['sql_procedure_function'])) {
-        $text = '';
-        $delimiter = '$$';
-
-        $procedure_names = PMA_DBI_get_procedures_or_functions($db, 'PROCEDURE');
-        $function_names = PMA_DBI_get_procedures_or_functions($db, 'FUNCTION');
-
-        if ($procedure_names || $function_names) {
-            $text .= $crlf
-              . 'DELIMITER ' . $delimiter . $crlf;
-        }
-
-        if ($procedure_names) {
-            $text .=
-                PMA_exportComment()
-              . PMA_exportComment(__('Procedures'))
-              . PMA_exportComment();
-
-            foreach($procedure_names as $procedure_name) {
-                if (! empty($GLOBALS['sql_drop_table'])) {
-		    $text .= 'DROP PROCEDURE IF EXISTS ' . PMA_backquote($procedure_name) . $delimiter . $crlf;
-                }
-                $text .= PMA_DBI_get_definition($db, 'PROCEDURE', $procedure_name) . $delimiter . $crlf . $crlf;
-            }
-        }
-
-        if ($function_names) {
-            $text .=
-                PMA_exportComment()
-              . PMA_exportComment(__('Functions'))
-              . PMA_exportComment();
-
-            foreach($function_names as $function_name) {
-                if (! empty($GLOBALS['sql_drop_table'])) {
-		    $text .= 'DROP FUNCTION IF EXISTS ' . PMA_backquote($function_name) . $delimiter . $crlf;
-                }
-                $text .= PMA_DBI_get_definition($db, 'FUNCTION', $function_name) . $delimiter . $crlf . $crlf;
-            }
-        }
-
-        if ($procedure_names || $function_names) {
-            $text .= 'DELIMITER ;' . $crlf;
-        }
-
-        if (! empty($text)) {
-            $result = PMA_exportOutputHandler($text);
-        }
-    }
     return $result;
 }
 
@@ -941,15 +953,6 @@ function PMA_exportData($db, $table, $crlf, $error_url, $sql_query)
     }
 
     // it's not a VIEW
-    $head = PMA_possibleCRLF()
-          . PMA_exportComment()
-          . PMA_exportComment(__('Dumping data for table') . ' ' . $formatted_table_name)
-          . PMA_exportComment();
-
-    if (! PMA_exportOutputHandler($head)) {
-        return FALSE;
-    }
-
     $buffer = '';
 
     // analyze the query to get the true column names, not the aliases
@@ -965,13 +968,6 @@ function PMA_exportData($db, $table, $crlf, $error_url, $sql_query)
     }
 
     if ($result != FALSE) {
-        // emit a single CRLF before the first data statement (produces
-        // an unintended CRLF when there is no data, but I don't see how it
-        // can be avoided, as we are in UNBUFFERED mode)
-        if (! PMA_exportOutputHandler($crlf)) {
-            return FALSE;
-        }
-
         $fields_cnt     = PMA_DBI_num_fields($result);
 
         // Get field information
@@ -1041,6 +1037,16 @@ function PMA_exportData($db, $table, $crlf, $error_url, $sql_query)
         }
 
         while ($row = PMA_DBI_fetch_row($result)) {
+            if ($current_row == 0) {
+                $head = PMA_possibleCRLF()
+                      . PMA_exportComment()
+                      . PMA_exportComment(__('Dumping data for table') . ' ' . $formatted_table_name)
+                      . PMA_exportComment()
+                      . $crlf;
+                if (! PMA_exportOutputHandler($head)) {
+                    return FALSE;
+                }
+            }
             $current_row++;
             for ($j = 0; $j < $fields_cnt; $j++) {
                 // NULL

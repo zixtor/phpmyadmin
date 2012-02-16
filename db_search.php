@@ -37,7 +37,6 @@
  */
 require_once './libraries/common.inc.php';
 
-$GLOBALS['js_include'][] = 'jquery/jquery-1.4.2.js';
 $GLOBALS['js_include'][] = 'db_search.js';
 
 /**
@@ -179,7 +178,7 @@ if (isset($_REQUEST['submit_search'])) {
             $thefieldlikevalue = array();
             foreach ($tblfields as $tblfield) {
                 if (! isset($field) || strlen($field) == 0 || $tblfield == $field) {
-                    $thefieldlikevalue[] = PMA_backquote($tblfield)
+                    $thefieldlikevalue[] = 'CONVERT(' . PMA_backquote($tblfield) . ' USING utf8)'
                                          . ' ' . $like_or_regex . ' '
                                          . "'" . $automatic_wildcard
                                          . $search_word
@@ -244,22 +243,22 @@ if (isset($_REQUEST['submit_search'])) {
 
         $sql_query .= $newsearchsqls['select_count'];
 
-        echo '<tr class="' . ($odd_row ? 'odd' : 'even') . '">'
+        echo '<tr class="noclick ' . ($odd_row ? 'odd' : 'even') . '">'
             .'<td>' . sprintf(_ngettext('%s match inside table <i>%s</i>', '%s matches inside table <i>%s</i>', $res_cnt), $res_cnt,
                 htmlspecialchars($each_table)) . "</td>\n";
 
         if ($res_cnt > 0) {
             $this_url_params['sql_query'] = $newsearchsqls['select_fields'];
-            echo '<td>' . PMA_linkOrButton(
-                    'sql.php' . PMA_generate_common_url($this_url_params),
-                    __('Browse'), '') .  "</td>\n";
-
+             $browse_result_path = 'sql.php' . PMA_generate_common_url($this_url_params);
+             ?>
+            <td> <a name="browse_search" href="<?php echo $browse_result_path; ?>" onclick="loadResult('<?php echo $browse_result_path ?> ',' <?php echo  $each_table?> ' , '<?php echo PMA_generate_common_url($GLOBALS['db'], $each_table)?>','<?php echo ($GLOBALS['cfg']['AjaxEnable']); ?>');return false;" ><?php echo __('Browse') ?></a>   </td>
+            <?php
             $this_url_params['sql_query'] = $newsearchsqls['delete'];
-            echo '<td>' . PMA_linkOrButton(
-                    'sql.php' . PMA_generate_common_url($this_url_params),
-                    __('Delete'), sprintf(__('Delete the matches for the %s table?'), htmlspecialchars($each_table))) .  "</td>\n";
-
-        } else {
+            $delete_result_path = 'sql.php' . PMA_generate_common_url($this_url_params);
+            ?>
+            <td> <a name="delete_search" href="<?php echo $delete_result_path; ?>" onclick="deleteResult('<?php echo $delete_result_path ?>' , ' <?php printf(__('Delete the matches for the %s table?'), htmlspecialchars($each_table)); ?>','<?php echo ($GLOBALS['cfg']['AjaxEnable']); ?>');return false;" ><?php echo __('Delete') ?></a>   </td>
+            <?php
+         } else {
             echo '<td>&nbsp;</td>' . "\n"
                 .'<td>&nbsp;</td>' . "\n";
         }// end if else
@@ -290,7 +289,7 @@ else {
  */
 ?>
 <a name="db_search"></a>
-<form id="db_search_form" method="post" action="db_search.php" name="db_search">
+<form id="db_search_form"<?php echo ($GLOBALS['cfg']['AjaxEnable'] ? ' class="ajax"' : ''); ?> method="post" action="db_search.php" name="db_search">
 <?php echo PMA_generate_common_hidden_inputs($GLOBALS['db']); ?>
 <fieldset>
     <legend><?php echo __('Search in database'); ?></legend>
@@ -360,6 +359,20 @@ $alter_select =
         id="buttonGo" />
 </fieldset>
 </form>
+
+<!-- These two table-image and table-link elements display the table name in browse search results  -->
+<div id='table-info'>
+<a class="item" id="table-link" ></a>
+</div>
+<div id="browse-results">
+<!-- this browse-results div is used to load the browse and delete results in the db search -->
+</div>
+<br class="clearfloat" />
+<div id="sqlqueryform">
+<!-- this sqlqueryform div is used to load the delete form in the db search -->
+</div>
+<!--  toggle query box link-->
+<a id="togglequerybox"></a>
 
 <?php
 /**

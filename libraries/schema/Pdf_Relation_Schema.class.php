@@ -18,7 +18,7 @@ require_once './libraries/tcpdf/tcpdf.php';
 /**
  * Extends the "TCPDF" class and helps
  * in developing the structure of PDF Schema Export
- * 
+ *
  * @name PMA_PDF
  * @copyright
  * @license
@@ -40,15 +40,16 @@ class PMA_PDF extends TCPDF
     var $def_outlines;
     var $Alias = array();
     var $widths;
+    private $_ff = PMA_PDF_FONT;
 
-    public function getFh()
+    public function getH()
     {
-        return $this->fh;
+        return $this->h;
     }
 
-    public function getFw()
+    public function getW()
     {
-        return $this->fw;
+        return $this->w;
     }
 
     public function setCMargin($c_margin)
@@ -225,9 +226,9 @@ class PMA_PDF extends TCPDF
              . ' AND page_nr = \'' . $pdf_page_number . '\'';
             $test_rs = PMA_query_as_controluser($test_query);
             $pages = @PMA_DBI_fetch_assoc($test_rs);
-            $this->SetFont('', 'B', 14);
+            $this->SetFont($this->_ff, 'B', 14);
             $this->Cell(0, 6, ucfirst($pages['page_descr']), 'B', 1, 'C');
-            $this->SetFont('', '');
+            $this->SetFont($this->_ff, '');
             $this->Ln();
         }
     }
@@ -238,14 +239,14 @@ class PMA_PDF extends TCPDF
         global $with_doc;
         if ($with_doc) {
             $this->SetY(-15);
-            $this->SetFont('', '', 14);
-            $this->Cell(0, 6, __('Page number:') . ' ' . $this->PageNo() . '/{nb}', 'T', 0, 'C');
+            $this->SetFont($this->_ff, '', 14);
+            $this->Cell(0, 6, __('Page number:') . ' ' . $this->getAliasNumPage() . '/' .  $this->getAliasNbPages(), 'T', 0, 'C');
             $this->Cell(0, 6, PMA_localisedDate(), 0, 1, 'R');
             $this->SetY(20);
         }
     }
 
-    function Bookmark($txt, $level = 0, $y = 0)
+    function Bookmark($txt, $level = 0, $y = 0, $page = '')
     {
         // Add a bookmark
         $this->Outlines[0][] = $level;
@@ -343,15 +344,6 @@ class PMA_PDF extends TCPDF
         $this->_putbookmarks();
     }
 
-    function _putcatalog()
-    {
-        parent::_putcatalog();
-        if (count($this->Outlines) > 0) {
-            $this->_out('/Outlines ' . $this->def_outlines . ' 0 R');
-            $this->_out('/PageMode /UseOutlines');
-        }
-    }
-
     function SetWidths($w)
     {
         // column widths
@@ -388,14 +380,6 @@ class PMA_PDF extends TCPDF
         }
         // go to line
         $this->Ln($h);
-    }
-
-    function CheckPageBreak($h)
-    {
-        // if height h overflows, manual page break
-        if ($this->GetY() + $h > $this->PageBreakTrigger) {
-            $this->AddPage($this->CurOrientation);
-        }
     }
 
     function NbLines($w, $txt)
@@ -452,8 +436,8 @@ class PMA_PDF extends TCPDF
 
 /**
  * Table preferences/statistics
- * 
- * This class preserves the table co-ordinates,fields 
+ *
+ * This class preserves the table co-ordinates,fields
  * and helps in drawing/generating the Tables in PDF document.
  *
  * @name Table_Stats
@@ -461,7 +445,7 @@ class PMA_PDF extends TCPDF
  * @license
  * @see PMA_PDF
  */
-class Table_Stats 
+class Table_Stats
 {
     /**
      * Defines properties
@@ -476,6 +460,7 @@ class Table_Stats
     public $heightCell = 6;
     public $x, $y;
     public $primary = array();
+    private $_ff = PMA_PDF_FONT;
 
     /**
      * The "Table_Stats" constructor
@@ -584,7 +569,7 @@ class Table_Stats
             $this->width = max($this->width, $pdf->GetStringWidth($field));
         }
         $this->width += $pdf->GetStringWidth('  ');
-        $pdf->SetFont($fontSize, 'B');
+        $pdf->SetFont($this->_ff, 'B', $fontSize);
         /*
          * it is unknown what value must be added, because
          * table title is affected by the tabe width value
@@ -592,7 +577,7 @@ class Table_Stats
         while ($this->width < $pdf->GetStringWidth($this->_getTitle())) {
             $this->width += 5;
         }
-        $pdf->SetFont($fontSize, '');
+        $pdf->SetFont($this->_ff, '', $fontSize);
     }
 
     /**
@@ -619,7 +604,7 @@ class Table_Stats
         global $pdf, $withDoc;
 
         $pdf->PMA_PDF_setXyScale($this->x, $this->y);
-        $pdf->SetFont($fontSize, 'B');
+        $pdf->SetFont($this->_ff, 'B', $fontSize);
         if ($setColor) {
             $pdf->SetTextColor(200);
             $pdf->SetFillColor(0, 0, 128);
@@ -632,7 +617,7 @@ class Table_Stats
 
         $pdf->PMA_PDF_cellScale($this->width, $this->heightCell, $this->_getTitle(), 1, 1, 'C', $setColor, $pdf->PMA_links['doc'][$this->_tableName]['-']);
         $pdf->PMA_PDF_setXScale($this->x);
-        $pdf->SetFont($fontSize, '');
+        $pdf->SetFont($this->_ff, '', $fontSize);
         $pdf->SetTextColor(0);
         $pdf->SetFillColor(255);
 
@@ -663,9 +648,9 @@ class Table_Stats
 
 /**
  * Relation preferences/statistics
- * 
+ *
  * This class fetches the table master and foreign fields positions
- * and helps in generating the Table references and then connects 
+ * and helps in generating the Table references and then connects
  * master table's master field to foreign table's foreign key
  * in PDF document.
  *
@@ -674,7 +659,7 @@ class Table_Stats
  * @license
  * @see PMA_PDF::SetDrawColor,PMA_PDF::PMA_PDF_setLineWidthScale,PMA_PDF::PMA_PDF_lineScale
  */
-class Relation_Stats 
+class Relation_Stats
 {
     /**
      * Defines properties
@@ -862,7 +847,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
         $this->setExportType($_POST['export_type']);
 
          // Initializes a new document
-        $pdf = new PMA_PDF('L', 'mm', $this->paper);
+        $pdf = new PMA_PDF($this->orientation, 'mm', $this->paper);
         $pdf->SetTitle(sprintf(__('Schema of the %s database - Page %s'), $GLOBALS['db'], $this->pageNumber));
         $pdf->setCMargin(0);
         $pdf->Open();
@@ -873,6 +858,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
         $pdf->AddFont('DejaVuSerif', '', 'dejavuserif.php');
         $pdf->AddFont('DejaVuSerif', 'B', 'dejavuserifb.php');
         $pdf->SetFont($this->_ff, '', 14);
+        $pdf->setFooterFont(array($this->_ff, '', 14));
         $pdf->SetAutoPageBreak('auto');
         $alltables = $this->getAllTables($db,$this->pageNumber);
 
@@ -908,8 +894,8 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
         // Defines the scale factor
         $this->scale = ceil(
             max(
-                ($this->_xMax - $this->_xMin) / ($pdf->getFh() - $this->rightMargin - $this->leftMargin),
-                ($this->_yMax - $this->_yMin) / ($pdf->getFw() - $this->topMargin - $this->bottomMargin))
+                ($this->_xMax - $this->_xMin) / ($pdf->getW() - $this->rightMargin - $this->leftMargin),
+                ($this->_yMax - $this->_yMin) / ($pdf->getH() - $this->topMargin - $this->bottomMargin))
              * 100) / 100;
 
         $pdf->PMA_PDF_setScale($this->scale, $this->_xMin, $this->_yMin, $this->leftMargin, $this->topMargin);
@@ -940,7 +926,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
                 } // end while
             } // end if
         } // end while
-        
+
         if ($seen_a_relation) {
             $this->_drawRelations($this->showColor);
         }
@@ -998,24 +984,35 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
     {
         global $pdf;
 
+        $gridSize = 10;
+        $labelHeight = 4;
+        $labelWidth = 5;
+        if ($this->withDoc) {
+            $topSpace = 6;
+            $bottomSpace = 15;
+        } else {
+            $topSpace = 0;
+            $bottomSpace = 0;
+        }
+
         $pdf->SetMargins(0, 0);
         $pdf->SetDrawColor(200, 200, 200);
         // Draws horizontal lines
-        for ($l = 0; $l < 21; $l++) {
-            $pdf->line(0, $l * 10, $pdf->getFh(), $l * 10);
+        for ($l = 0; $l <= intval(($pdf->getH() - $topSpace - $bottomSpace) / $gridSize); $l++) {
+            $pdf->line(0, $l * $gridSize + $topSpace, $pdf->getW(), $l * $gridSize + $topSpace);
             // Avoid duplicates
-            if ($l > 0) {
-                $pdf->SetXY(0, $l * 10);
-                $label = (string) sprintf('%.0f', ($l * 10 - $this->topMargin) * $this->scale + $this->_yMin);
-                $pdf->Cell(5, 5, ' ' . $label);
+            if ($l > 0 && $l <= intval(($pdf->getH() - $topSpace - $bottomSpace - $labelHeight) / $gridSize)) {
+                $pdf->SetXY(0, $l * $gridSize + $topSpace);
+                $label = (string) sprintf('%.0f', ($l * $gridSize + $topSpace - $this->topMargin) * $this->scale + $this->_yMin);
+                $pdf->Cell($labelWidth, $labelHeight, ' ' . $label);
             } // end if
         } // end for
         // Draws vertical lines
-        for ($j = 0; $j < 30 ;$j++) {
-            $pdf->line($j * 10, 0, $j * 10, $pdf->getFw());
-            $pdf->SetXY($j * 10, 0);
-            $label = (string) sprintf('%.0f', ($j * 10 - $this->leftMargin) * $this->scale + $this->_xMin);
-            $pdf->Cell(5, 7, $label);
+        for ($j = 0; $j <= intval($pdf->getW() / $gridSize); $j++) {
+            $pdf->line($j * $gridSize, $topSpace, $j * $gridSize, $pdf->getH() - $bottomSpace);
+            $pdf->SetXY($j * $gridSize, $topSpace);
+            $label = (string) sprintf('%.0f', ($j * $gridSize - $this->leftMargin) * $this->scale + $this->_xMin);
+            $pdf->Cell($labelWidth, $labelHeight, $label);
         }
     }
 
@@ -1050,7 +1047,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
     }
 
     /**
-     * Ouputs the PDF document to a file 
+     * Ouputs the PDF document to a file
      * or sends the output to browser
      *
      * @global object   The current PDF document
@@ -1078,6 +1075,8 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
         if (empty($filename)) {
             $filename = $pageNumber . '.pdf';
         }
+        $filename = PMA_sanitize_filename($filename);
+
         // instead of $pdf->Output():
         $pdfData = $pdf->getPDFData();
         header('Content-Type: application/pdf');
@@ -1114,20 +1113,21 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
         }
         $pdf->PMA_links['RT']['-'] = $pdf->AddLink();
         $pdf->SetX(10);
-        $pdf->Cell(0, 6, __('Page number:') . ' {' . sprintf("%02d", $i + 1) . '}', 0, 0, 'R', 0, $pdf->PMA_links['doc'][$lasttable]['-']);
+        $pdf->Cell(0, 6, __('Page number:') . ' {' . sprintf("%02d", $i + 1) . '}', 0, 0, 'R', 0, $pdf->PMA_links['RT']['-']);
         $pdf->SetX(10);
-        $pdf->Cell(0, 6, $i + 1 . ' ' . __('Relational schema'), 0, 1, 'L', 0, $pdf->PMA_links['RT']['-']);
+        $pdf->Cell(0, 6, $i . ' ' . __('Relational schema'), 0, 1, 'L', 0, $pdf->PMA_links['RT']['-']);
         $z = 0;
         foreach ($alltables as $table) {
             $z++;
+            $pdf->SetAutoPageBreak(true, 15);
             $pdf->addpage($GLOBALS['orientation']);
             $pdf->Bookmark($table);
             $pdf->SetAlias('{' . sprintf("%02d", $z) . '}', $pdf->PageNo()) ;
             $pdf->PMA_links['RT'][$table]['-'] = $pdf->AddLink();
             $pdf->SetLink($pdf->PMA_links['doc'][$table]['-'], -1);
-            $pdf->SetFont('', 'B', 18);
+            $pdf->SetFont($this->_ff, 'B', 18);
             $pdf->Cell(0, 8, $z . ' ' . $table, 1, 1, 'C', 0, $pdf->PMA_links['RT'][$table]['-']);
-            $pdf->SetFont('', '', 8);
+            $pdf->SetFont($this->_ff, '', 8);
             $pdf->ln();
 
             $cfgRelation = PMA_getRelationsParam();
@@ -1236,7 +1236,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
                 $pdf->Ln();
             }
 
-            $pdf->SetFont('', 'B');
+            $pdf->SetFont($this->_ff, 'B');
             if (isset($orientation) && $orientation == 'L') {
                 $pdf->Cell(25, 8, ucfirst(__('Column')), 1, 0, 'C');
                 $pdf->Cell(20, 8, ucfirst(__('Type')), 1, 0, 'C');
@@ -1270,7 +1270,7 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
                 $pdf->Cell(30, 8, 'MIME', 1, 1, 'C');
                 $pdf->SetWidths(array(20, 20, 20, 10, 15, 15, 30, 30, 30));
             }
-            $pdf->SetFont('', '');
+            $pdf->SetFont($this->_ff, '');
 
             while ($row = PMA_DBI_fetch_assoc($result)) {
                 $type = $row['Type'];
@@ -1339,9 +1339,9 @@ class PMA_Pdf_Relation_Schema extends PMA_Export_Relation_Schema
                 }
                 $pdf->Row($pdf_row, $links);
             } // end while
-            $pdf->SetFont('', '', 14);
+            $pdf->SetFont($this->_ff, '', 14);
             PMA_DBI_free_result($result);
-        } //end each    
+        } //end each
     }
 }
 ?>

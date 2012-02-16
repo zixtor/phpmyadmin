@@ -115,8 +115,11 @@ function PMA_sqlQueryForm($query = true, $display_tab = false, $delimiter = ';')
               return checkSqlQuery(this)">
         <?php
     } else {
-        echo '<form method="post" action="import.php" ' . $enctype . ' id="sqlqueryform"'
-            .' onsubmit="return checkSqlQuery(this)" name="sqlform">' . "\n";
+        echo '<form method="post" action="import.php" ' . $enctype;
+        if ($GLOBALS['cfg']['AjaxEnable']) {
+            echo ' class="ajax"';
+        }
+        echo ' id="sqlqueryform" name="sqlform">' . "\n";
     }
 
     if ($is_querywindow) {
@@ -197,7 +200,7 @@ function PMA_sqlQueryFormInsert($query = '', $is_querywindow = false, $delimiter
 
     // enable auto select text in textarea
     if ($GLOBALS['cfg']['TextareaAutoSelect']) {
-        $auto_sel = ' onfocus="selectContent(this, sql_box_locked, true)"';
+        $auto_sel = ' onclick="selectContent(this, sql_box_locked, true)"';
     } else {
         $auto_sel = '';
     }
@@ -290,6 +293,7 @@ function PMA_sqlQueryFormInsert($query = '', $is_querywindow = false, $delimiter
         echo '<input type="button" value="UPDATE" id="update" class="sqlbutton" />';
         echo '<input type="button" value="DELETE" id="delete" class="sqlbutton" />';
     }
+    echo '<input type="button" value="' . __('Clear') . '" id="clear" class="sqlbutton" />';
     echo '</div>' . "\n";
 
     if (count($fields_list)) {
@@ -377,7 +381,7 @@ function PMA_sqlQueryFormInsert($query = '', $is_querywindow = false, $delimiter
         .'</label>' . "\n";
 
     echo '</div>' . "\n";
-    echo '<input type="submit" name="SQL" tabindex="200" value="' . __('Go') . '" />'
+    echo '<input type="submit" id="button_submit_query" name="SQL" tabindex="200" value="' . __('Go') . '" />'
         ."\n";
     echo '<div class="clearfloat"></div>' . "\n";
     echo '</fieldset>' . "\n";
@@ -447,7 +451,7 @@ function PMA_sqlQueryFormBookmark()
     echo '</fieldset>' . "\n";
 
     echo '<fieldset id="bookmarkoptionsfooter" class="tblFooters">' . "\n";
-    echo '<input type="submit" name="SQL" value="' . __('Go') . '" />';
+    echo '<input type="submit" name="SQL" id="button_submit_bookmark" value="' . __('Go') . '" />';
     echo '<div class="clearfloat"></div>' . "\n";
     echo '</fieldset>' . "\n";
 }

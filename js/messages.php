@@ -79,11 +79,20 @@ $js_messages['strNo'] = __('No');
 
 /* For db_search.js */
 $js_messages['strSearching'] = __('Searching');
+//$js_messages['strBrowsing'] = __('Browsing');
+//$js_messages['strDeleting'] = __('Deleting');
 
 /* For sql.js */
 $js_messages['strHideQueryBox'] = __('Hide query box');
 $js_messages['strShowQueryBox'] = __('Show query box');
 $js_messages['strInlineEdit'] = __('Inline Edit');
+$js_messages['strEdit'] = __('Edit');
+$js_messages['strSave'] = __('Save');
+$js_messages['strHide'] = __('Hide');
+
+/* For tbl_select.js */
+$js_messages['strHideSearchCriteria'] = __('Hide search criteria');
+$js_messages['strShowSearchCriteria'] = __('Show search criteria');
 
 /* For tbl_change.js */
 $js_messages['strIgnore'] = __('Ignore');
@@ -105,12 +114,25 @@ $js_messages['strChangePassword'] = __('Change Password');
 /* navigation tabs */
 $js_messages['strMore'] = __('More');
 
+/* update */
+$js_messages['strNewerVersion'] = __('A newer version of phpMyAdmin is available and you should consider upgrading. The newest version is %s, released on %s.');
+/* l10n: Latest available phpMyAdmin version */
+$js_messages['strLatestAvailable'] = __(', latest stable version:');
+
 echo "var PMA_messages = new Array();\n";
 foreach ($js_messages as $name => $js_message) {
     PMA_printJsValue("PMA_messages['" . $name . "']", $js_message);
 }
 
 /* Calendar */
+echo "var themeCalendarImage = '" . $GLOBALS['pmaThemeImage'] . 'b_calendar.png' . "';\n";
+
+/* Image path */
+echo "var pmaThemeImage = '" . $GLOBALS['pmaThemeImage'] . "';\n";
+
+/* Version */
+echo "var pmaversion = '" . PMA_VERSION . "';\n";
+
 echo "if ($.datepicker) {\n";
 /* l10n: Display text for calendar close link */
 PMA_printJsValue("$.datepicker.regional['']['closeText']", __('Done'));

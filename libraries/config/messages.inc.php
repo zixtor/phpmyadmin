@@ -14,6 +14,8 @@ if (!function_exists('__')) {
     die('Bad invocation!');
 }
 
+$strConfigAjaxEnable_desc = __('Improves efficiency of screen refresh');
+$strConfigAjaxEnable_name = __('Enable Ajax');
 $strConfigAllowArbitraryServer_desc = __('If enabled user can enter any MySQL server in login form for cookie auth');
 $strConfigAllowArbitraryServer_name = __('Allow login to any MySQL server');
 $strConfigAllowThirdPartyFraming_desc = __('Enabling this allows a page located on a different domain to call phpMyAdmin inside a frame, and is a potential [strong]security hole[/strong] allowing cross-frame scripting attacks');
@@ -115,7 +117,7 @@ $strConfigExport_remember_file_template_name = __('Remember file name template')
 $strConfigExport_sql_auto_increment_name = __('Add AUTO_INCREMENT value');
 $strConfigExport_sql_backquotes_name = __('Enclose table and column names with backquotes');
 $strConfigExport_sql_compatibility_name = __('SQL compatibility mode');
-$strConfigExport_sql_create_table_statements_name = __('Syntax to use when inserting data');
+$strConfigExport_sql_create_table_statements_name = __('<code>CREATE TABLE</code> options:');
 $strConfigExport_sql_dates_name = __('Creation/Update/Check dates');
 $strConfigExport_sql_delayed_name = __('Use delayed inserts');
 $strConfigExport_sql_disable_fk_name = __('Disable foreign key checks');
@@ -125,6 +127,7 @@ $strConfigExport_sql_hex_for_blob_name = __('Use hexadecimal for BLOB');
 $strConfigExport_sql_if_not_exists_name = sprintf(__('Add %s'), 'IF NOT EXISTS');
 $strConfigExport_sql_ignore_name = __('Use ignore inserts');
 $strConfigExport_sql_include_comments_name = __('Comments');
+$strConfigExport_sql_insert_syntax_name = __('Syntax to use when inserting data');
 $strConfigExport_sql_max_query_size_name = __('Maximal length of created query');
 $strConfigExport_sql_mime_name = __('MIME type');
 $strConfigExport_sql_procedure_function_name = sprintf(__('Add %s'), 'CREATE PROCEDURE / FUNCTION / EVENT');
@@ -309,8 +312,9 @@ $strConfigMcryptDisableWarning_desc = __('Disable the default warning that is di
 $strConfigMcryptDisableWarning_name = __('mcrypt warning');
 $strConfigMemoryLimit_desc = __('The number of bytes a script is allowed to allocate, eg. [kbd]32M[/kbd] ([kbd]0[/kbd] for no limit)');
 $strConfigMemoryLimit_name = __('Memory limit');
-$strConfigModifyDeleteAtLeft_name = __('Show left delete link');
-$strConfigModifyDeleteAtRight_name = __('Show right delete link');
+$strConfigModifyDeleteAtLeft_desc = __('These are Edit, Inline edit, Copy and Delete links');
+$strConfigModifyDeleteAtLeft_name = __('Show table row links on left side');
+$strConfigModifyDeleteAtRight_name = __('Show table row links on right side');
 $strConfigNaturalOrder_desc = __('Use natural order for sorting table and database names');
 $strConfigNaturalOrder_name = __('Natural order');
 $strConfigNavigationBarIconic_desc = __('Use only icons, only text or both');
@@ -424,7 +428,7 @@ $strConfigServers_tracking_desc = __('Leave blank for no SQL query tracking supp
 $strConfigServers_tracking_name = __('SQL query tracking table');
 $strConfigServers_tracking_version_auto_create_desc = __('Whether the tracking mechanism creates versions for tables and views automatically.');
 $strConfigServers_tracking_version_auto_create_name = __('Automatically create versions');
-$strConfigServers_userconfig_desc = __('Leave blank for no user preferences storage in database, suggested: [kbd]pma_config[/kbd]');
+$strConfigServers_userconfig_desc = __('Leave blank for no user preferences storage in database, suggested: [kbd]pma_userconfig[/kbd]');
 $strConfigServers_userconfig_name = __('User preferences storage table');
 $strConfigServers_user_desc = __('Leave empty if not using config auth');
 $strConfigServers_user_name = __('User for config auth');
@@ -493,6 +497,8 @@ $strConfigUserprefsDeveloperTab_name = __('Enable the Developer tab in settings'
 $strConfigVerboseMultiSubmit_desc = __('Show affected rows of each statement on multiple-statement queries. See libraries/import.lib.php for defaults on how many queries a statement may contain.');
 $strConfigVerboseMultiSubmit_name = __('Verbose multiple statements');
 $strConfigVersionCheckLink = __('Check for latest version');
+$strConfigVersionCheck_desc = __('Enables check for latest version on main phpMyAdmin page');
+$strConfigVersionCheck_name = __('Version check');
 $strConfigZipDump_desc = __('Enable [a@http://en.wikipedia.org/wiki/ZIP_(file_format)]ZIP[/a] compression for import and export operations');
 $strConfigZipDump_name = __('ZIP');
 

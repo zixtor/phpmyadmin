@@ -53,7 +53,7 @@ if (isset($GLOBALS['sr_take_action'])) {
 
         if (! $link_to_master) {
             $_SESSION['replication']['sr_action_status'] = 'error';
-            $_SESSION['replication']['sr_action_info'] = sprintf(__('Unable to connect to master %s.'), $sr['hostname']);
+            $_SESSION['replication']['sr_action_info'] = sprintf(__('Unable to connect to master %s.'), htmlspecialchars($sr['hostname']));
         } else {
             // Read the current master position
             $position = PMA_replication_slave_bin_log_master($link_to_master);
@@ -70,6 +70,7 @@ if (isset($GLOBALS['sr_take_action'])) {
                 } else {
                     $_SESSION['replication']['sr_action_status'] = 'success';
                     $_SESSION['replication']['sr_action_info'] = sprintf(__('Master server changed succesfully to %s'), $sr['hostname']);
+                    $_SESSION['replication']['sr_action_info'] = sprintf(__('Master server changed succesfully to %s'), htmlspecialchars($sr['hostname']));
                 }
             }
         }
@@ -288,10 +289,10 @@ if (! isset($GLOBALS['repl_clear_scr'])) {
         $slave_skip_error_link = PMA_generate_common_url($_url_params);
 
         if ($server_slave_replication[0]['Slave_SQL_Running'] == 'No') {
-            PMA_Message::warning(__('Slave SQL Thread not running!'))->display();
+            PMA_Message::error(__('Slave SQL Thread not running!'))->display();
         }
         if ($server_slave_replication[0]['Slave_IO_Running'] == 'No') {
-            PMA_Message::warning(__('Slave IO Thread not running!'))->display();
+            PMA_Message::error(__('Slave IO Thread not running!'))->display();
         }
 
         $_url_params = $GLOBALS['url_params'];
@@ -337,7 +338,7 @@ if (! isset($GLOBALS['repl_clear_scr'])) {
         echo ' </li>';
         echo ' <li><a href="#" id="slave_errormanagement_href">' . __('Error management:') . '</a>';
         echo ' <div id="slave_errormanagement_gui" style="display: none">';
-        PMA_Message::warning(__('Skipping errors might lead into unsynchronized master and slave!'))->display();
+        PMA_Message::error(__('Skipping errors might lead into unsynchronized master and slave!'))->display();
         echo '  <ul>';
         echo '   <li><a href="' . $slave_skip_error_link . '">' . __('Skip current error') . '</a></li>';
         echo '   <li>' . __('Skip next');

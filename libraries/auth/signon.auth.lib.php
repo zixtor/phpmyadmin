@@ -19,6 +19,7 @@
  * @access  public
  */
 function PMA_auth() {
+    unset($_SESSION['LAST_SIGNON_URL']);
     if (empty($GLOBALS['cfg']['Server']['SignonURL'])) {
         PMA_fatalError('You must set SignonURL!');
     } elseif (!empty($_REQUEST['old_usr']) && !empty($GLOBALS['cfg']['Server']['LogoutURL'])) {
@@ -54,14 +55,25 @@ function PMA_auth_check()
 {
     global $PHP_AUTH_USER, $PHP_AUTH_PW;
 
+    /* Check if we're using same sigon server */
+    if (isset($_SESSION['LAST_SIGNON_URL']) && $_SESSION['LAST_SIGNON_URL'] != $GLOBALS['cfg']['Server']['SignonURL']) {
+        return false;
+    }
+
     /* Session name */
     $session_name = $GLOBALS['cfg']['Server']['SignonSession'];
+
+    /* Login URL */
+    $signon_url = $GLOBALS['cfg']['Server']['SignonURL'];
 
     /* Current host */
     $single_signon_host = $GLOBALS['cfg']['Server']['host'];
 
     /* Current port */
     $single_signon_port = $GLOBALS['cfg']['Server']['port'];
+
+    /* No configuration updates */
+    $single_signon_cfgupdate = array();
 
     /* Are we requested to do logout? */
     $do_logout = !empty($_REQUEST['old_usr']);
@@ -104,6 +116,10 @@ function PMA_auth_check()
             $single_signon_port = $_SESSION['PMA_single_signon_port'];
         }
 
+        if (isset($_SESSION['PMA_single_signon_cfgupdate'])) {
+            $single_signon_cfgupdate = $_SESSION['PMA_single_signon_cfgupdate'];
+        }
+
 
         /* Also get token as it is needed to access subpages */
         if (isset($_SESSION['PMA_single_signon_token'])) {
@@ -127,16 +143,26 @@ function PMA_auth_check()
         /* Set the single signon port */
         $GLOBALS['cfg']['Server']['port'] = $single_signon_port;
 
+        /* Configuration update */
+        $GLOBALS['cfg']['Server'] = array_merge($GLOBALS['cfg']['Server'], $single_signon_cfgupdate);
+
         /* Restore our token */
         if (!empty($pma_token)) {
             $_SESSION[' PMA_token '] = $pma_token;
         }
+
+        /**
+         * Clear user cache.
+         */
+        PMA_clearUserCache();
     }
 
     // Returns whether we get authentication settings or not
     if (empty($PHP_AUTH_USER)) {
+        unset($_SESSION['LAST_SIGNON_URL']);
         return false;
     } else {
+        $_SESSION['LAST_SIGNON_URL'] = $GLOBALS['cfg']['Server']['SignonURL'];
         return true;
     }
 } // end of the 'PMA_auth_check()' function
@@ -176,18 +202,35 @@ function PMA_auth_set_user()
  */
 function PMA_auth_fails()
 {
-    if (! empty($GLOBALS['login_without_password_is_forbidden'])) {
-        $_SESSION['PMA_single_signon_error_message'] = __('Login without a password is forbidden by configuration (see AllowNoPassword)');
-    } elseif (! empty($GLOBALS['allowDeny_forbidden'])) {
-        $_SESSION['PMA_single_signon_error_message'] = __('Access denied');
-    } elseif (! empty($GLOBALS['no_activity'])) {
-        $_SESSION['PMA_single_signon_error_message'] = sprintf(__('No activity within %s seconds; please log in again'), $GLOBALS['cfg']['LoginCookieValidity']);
-    } elseif (PMA_DBI_getError()) {
-        $_SESSION['PMA_single_signon_error_message'] = PMA_sanitize(PMA_DBI_getError());
-    } elseif (isset($php_errormsg)) {
-        $_SESSION['PMA_single_signon_error_message'] = $php_errormsg;
-    } else {
-        $_SESSION['PMA_single_signon_error_message'] = __('Cannot log in to the MySQL server');
+    /* Session name */
+    $session_name = $GLOBALS['cfg']['Server']['SignonSession'];
+
+    /* Does session exist? */
+    if (isset($_COOKIE[$session_name])) {
+        /* End current session */
+        $old_session = session_name();
+        $old_id = session_id();
+        session_write_close();
+
+        /* Load single signon session */
+        session_name($session_name);
+        session_id($_COOKIE[$session_name]);
+        session_start();
+
+        /* Set error message */
+        if (! empty($GLOBALS['login_without_password_is_forbidden'])) {
+            $_SESSION['PMA_single_signon_error_message'] = __('Login without a password is forbidden by configuration (see AllowNoPassword)');
+        } elseif (! empty($GLOBALS['allowDeny_forbidden'])) {
+            $_SESSION['PMA_single_signon_error_message'] = __('Access denied');
+        } elseif (! empty($GLOBALS['no_activity'])) {
+            $_SESSION['PMA_single_signon_error_message'] = sprintf(__('No activity within %s seconds; please log in again'), $GLOBALS['cfg']['LoginCookieValidity']);
+        } elseif (PMA_DBI_getError()) {
+            $_SESSION['PMA_single_signon_error_message'] = PMA_sanitize(PMA_DBI_getError());
+        } elseif (isset($php_errormsg)) {
+            $_SESSION['PMA_single_signon_error_message'] = $php_errormsg;
+        } else {
+            $_SESSION['PMA_single_signon_error_message'] = __('Cannot log in to the MySQL server');
+        }
     }
     PMA_auth();
 } // end of the 'PMA_auth_fails()' function

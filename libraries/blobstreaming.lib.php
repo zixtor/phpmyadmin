@@ -31,7 +31,7 @@ function initPBMSDatabase()
             $query = "select * from $target.pbms_metadata_header"; // If it exists this table will not contain much
         }
     }
- 
+
     $result = PMA_DBI_query($query );
     if (! $result) {
         return FALSE;
@@ -106,7 +106,7 @@ function checkBLOBStreamingPlugins()
         }
         unset($existing_plugins, $one_existing_plugin);
     }
-    
+
     // set variable indicating BS plugin existence
     $PMA_Config->set('BLOBSTREAMING_PLUGINS_EXIST', $has_blobstreaming);
 
@@ -296,7 +296,7 @@ function PMA_BS_IsPBMSReference($bs_reference, $db_name)
      if (PMA_do_connect($db_name, FALSE) == FALSE) {
         return FALSE;
     }
-   
+
     $ok = pbms_is_blob_reference($bs_reference);
     return $ok ;
 }
@@ -391,8 +391,8 @@ function PMA_BS_IsTablePBMSEnabled($db_name, $tbl_name, $tbl_type)
     }
 
     // This information should be cached rather than selecting it each time.
-    //$query = "SELECT count(*)  FROM information_schema.TABLES T, pbms.pbms_enabled E where T.table_schema = ". PMA_backquote($db_name) . " and T.table_name = ". PMA_backquote($tbl_name) . " and T.engine = E.name"; 
-    $query = "SELECT count(*)  FROM pbms.pbms_enabled E where E.name = '" . PMA_sqlAddslashes($tbl_type) . "'"; 
+    //$query = "SELECT count(*)  FROM information_schema.TABLES T, pbms.pbms_enabled E where T.table_schema = ". PMA_backquote($db_name) . " and T.table_name = ". PMA_backquote($tbl_name) . " and T.engine = E.name";
+    $query = "SELECT count(*)  FROM pbms.pbms_enabled E where E.name = '" . PMA_sqlAddslashes($tbl_type) . "'";
     $result = PMA_DBI_query($query);
 
     $data = PMA_DBI_fetch_row($result);
@@ -471,13 +471,9 @@ function PMA_BS_SetContentType($db_name, $bsTable, $blobReference, $contentType)
 //------------
 function PMA_BS_IsHiddenTable($table)
 {
-    switch ($table) {
-        case 'pbms_repository' :
-        case 'pbms_reference' :
-        case 'pbms_metadata' :
-        case 'pbms_metadata_header' :
-        case 'pbms_dump' :
-            return TRUE;
+    if ($table === 'pbms_repository' || $table === 'pbms_reference' || $table === 'pbms_metadata'
+    || $table === 'pbms_metadata_header' || $table === 'pbms_dump') {
+        return TRUE;
     }
     return FALSE;
 }
@@ -497,7 +493,7 @@ function PMA_BS_getURL($reference)
         return FALSE;
     }
 
-    $bs_url = 'http://' . $bs_server . '/' . rtrim($reference);
+    $bs_url = PMA_linkURL('http://' . $bs_server . '/' . rtrim($reference));
     return $bs_url;
 }
 

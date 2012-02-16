@@ -87,7 +87,7 @@ function PMA_exportHeader()
  */
 function PMA_exportDBHeader($db)
 {
-    PMA_exportOutputHandler('//' . $GLOBALS['crlf'] . '// Database "' . $db . '"' . $GLOBALS['crlf'] . '//' . $GLOBALS['crlf']);
+    PMA_exportOutputHandler('//' . $GLOBALS['crlf'] . '// Database ' . PMA_backquote($db) . $GLOBALS['crlf'] . '//' . $GLOBALS['crlf']);
     return true;
 }
 
@@ -142,45 +142,46 @@ function PMA_exportData($db, $table, $crlf, $error_url, $sql_query)
     }
     unset($i);
 
+    // fix variable names (based on http://www.php.net/manual/language.variables.basics.php)
+    if (preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $table) == false) {
+        // fix invalid chars in variable names by replacing them with underscores
+        $tablefixed = preg_replace('/[^a-zA-Z0-9_\x7f-\xff]/', '_', $table);
+
+        // variable name must not start with a number or dash...
+        if (preg_match('/^[a-zA-Z_\x7f-\xff]/', $tablefixed) == false) {
+            $tablefixed = '_' . $tablefixed;
+        }
+    } else {
+        $tablefixed = $table;
+    }
+
     $buffer = '';
     $record_cnt = 0;
     while ($record = PMA_DBI_fetch_row($result)) {
 
         $record_cnt++;
-        
+
         // Output table name as comment if this is the first record of the table
         if ($record_cnt == 1) {
-            $buffer .= $crlf . '// ' . $db . '.' . $table . $crlf;
-            $buffer .= '$' . $table . ' = array(' . $crlf;
+            $buffer .= $crlf . '// ' . PMA_backquote($db) . '.' . PMA_backquote($table) . $crlf;
+            $buffer .= '$' . $tablefixed . ' = array(' . $crlf;
             $buffer .= '  array(';
         } else {
             $buffer .= ',' . $crlf . '  array(';
         }
 
-
         for ($i = 0; $i < $columns_cnt; $i++) {
-
-            $isLastLine = ($i + 1 >= $columns_cnt);
-
-            $column = $columns[$i];
-
-            if (is_null($record[$i])) {
-                $buffer .= "'" . $column . "'=>null" . (! $isLastLine ? ',' : '');
-            } elseif (is_numeric($record[$i])) {
-                $buffer .= "'" . $column . "'=>" . $record[$i] . (! $isLastLine ? ',' : '');
-            } else {
-                $buffer .= "'" . $column . "'=>'" . addslashes($record[$i]) . "'" . (! $isLastLine ? ',' : '');
-            }
+            $buffer .= var_export($columns[$i], true) . " => " . var_export($record[$i], true) . (($i + 1 >= $columns_cnt) ? '' : ',');
         }
 
         $buffer .= ')';
     }
-    
+
     $buffer .= $crlf . ');' . $crlf;
     if (! PMA_exportOutputHandler($buffer)) {
         return FALSE;
     }
-        
+
     PMA_DBI_free_result($result);
 
     return true;

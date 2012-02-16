@@ -28,10 +28,16 @@ if ($triggers) {
               __('Event'));
     $ct=0;
     $delimiter = '//';
+    if ($GLOBALS['cfg']['AjaxEnable']) {
+        $conditional_class = 'class="drop_trigger_anchor"';
+    } else {
+        $conditional_class = '';
+    }
+
     foreach ($triggers as $trigger) {
         $drop_and_create = $trigger['drop'] . $delimiter . "\n" . $trigger['create'] . "\n";
 
-        echo sprintf('<tr class="%s">
+        echo sprintf('<tr class="noclick %s">
                               <td><strong>%s</strong></td>
                               <td>%s</td>
                               <td>%s</td>
@@ -41,7 +47,7 @@ if ($triggers) {
                          ($ct%2 == 0) ? 'even' : 'odd',
                          $trigger['name'],
                          PMA_linkOrButton('tbl_sql.php?' . $url_query . '&amp;sql_query=' . urlencode($drop_and_create) . '&amp;show_query=1&amp;delimiter=' . urlencode($delimiter), $titles['Change']),
-                         '<a class="drop_trigger_anchor" href="sql.php?' . $url_query . '&sql_query=' . urlencode($trigger['drop']) . '" >' . $titles['Drop'] . '</a>',
+                         '<a ' . $conditional_class . ' href="sql.php?' . $url_query . '&sql_query=' . urlencode($trigger['drop']) . '" >' . $titles['Drop'] . '</a>',
                          $trigger['action_timing'],
                          $trigger['event_manipulation']);
         $ct++;

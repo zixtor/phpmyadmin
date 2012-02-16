@@ -8,12 +8,10 @@
 /**
  * Gets some core libraries and displays a top message if required
  */
-define('PMA_COLORPICKER', true);
 require_once './libraries/common.inc.php';
 
-$GLOBALS['js_include'][] = 'colorpicker/js/colorpicker.js';
-$GLOBALS['js_include'][] = 'main_custom_color.js';
 $GLOBALS['js_include'][] = 'jquery/jquery-ui-1.8.custom.js';
+$GLOBALS['js_include'][] = 'jquery/jquery.sprintf.js';
 
 // Handles some variables that may have been sent by the calling script
 $GLOBALS['db'] = '';
@@ -84,14 +82,20 @@ if ($server > 0
     if ($server > 0) {
         require_once './libraries/check_user_privileges.lib.php';
 
-        // Logout for advanced authentication
-        if ($cfg['Server']['auth_type'] != 'config') {
-            if ($cfg['ShowChgPassword']) {
-                PMA_printListItem(__('Change password'), 'li_change_password',
-                    './user_password.php?' . $common_url_query, null, null, 'change_password_anchor');
-            }
-        } // end if
-        if (PMA_MYSQL_MAJOR_VERSION < 2009) {
+        if (!PMA_DRIZZLE) {
+            // Logout for advanced authentication
+            if ($cfg['Server']['auth_type'] != 'config') {
+                if ($cfg['ShowChgPassword']) {
+                    if ($GLOBALS['cfg']['AjaxEnable']) {
+                        $conditional_class = 'ajax';
+                    } else {
+                        $conditional_class = null;
+                    }
+                    PMA_printListItem(__('Change password'), 'li_change_password',
+                        './user_password.php?' . $common_url_query, null, null, 'change_password_anchor', null, $conditional_class);
+                }
+            } // end if
+
             echo '    <li id="li_select_mysql_collation">';
             echo '        <form method="post" action="index.php" target="_parent">' . "\n"
            . PMA_generate_common_hidden_inputs(null, null, 4, 'collation_connection')
@@ -129,17 +133,6 @@ if ($GLOBALS['cfg']['ThemeManager']) {
     echo '<li id="li_select_theme">';
     echo $_SESSION['PMA_Theme_Manager']->getHtmlSelectBox();
     echo '</li>';
-
-    // see js/main_custom_color.js
-    echo '<li id="li_custom_color" class="hide">';
-    echo __('Background color') . ': ';
-    echo '<input type="submit" name="custom_color_choose" value="' . __('Choose...') . '" />';
-    echo '<form name="colorform" id="colorform" method="post" action="index.php" target="_parent">';
-    echo PMA_generate_common_hidden_inputs();
-    echo '<input type="hidden" id="custom_color" name="custom_color" value="" />';
-    echo '<input type="submit" name="custom_color_reset" value="' . __('Reset') . '" />';
-    echo '</form>';
-    echo '</li>';
 }
 echo '<li id="li_select_fontsize">';
 echo PMA_Config::getFontsizeForm();
@@ -149,10 +142,12 @@ echo '</ul>';
 
 // User preferences
 
-echo '<ul>';
-echo PMA_printListItem(__('More settings'), 'li_user_preferences',
+if ($server > 0) {
+    echo '<ul>';
+    echo PMA_printListItem(__('More settings'), 'li_user_preferences',
                     './prefs_manage.php?' . $common_url_query);
-echo '</ul>';
+    echo '</ul>';
+}
 
 echo '</div>';
 
@@ -193,7 +188,7 @@ if ($GLOBALS['cfg']['ShowServerInfo'] || $GLOBALS['cfg']['ShowPhpInfo']) {
         if ($server > 0) {
             PMA_printListItem(__('MySQL client version') . ': ' . PMA_DBI_get_client_info(),
                 'li_mysql_client_version');
-            PMA_printListItem(__('PHP extension') . ': ' . $GLOBALS['cfg']['Server']['extension'],
+            PMA_printListItem(__('PHP extension') . ': ' . $GLOBALS['cfg']['Server']['extension'] . ' ' . PMA_showPHPDocu('book.' . $GLOBALS['cfg']['Server']['extension'] . '.php'),
                 'li_used_php_extension');
         }
     }
@@ -205,24 +200,26 @@ if ($GLOBALS['cfg']['ShowServerInfo'] || $GLOBALS['cfg']['ShowPhpInfo']) {
     echo ' </div>';
 }
 
-echo '<div class="group">';
+echo '<div class="group pmagroup">';
 echo '<h2>phpMyAdmin</h2>';
 echo '<ul>';
-PMA_printListItem(__('Version information') . ': ' . PMA_VERSION, 'li_pma_version');
+$class = null;
+// workaround for bug 3302733; some browsers don't like the situation
+// where phpMyAdmin is called on a secure page but a part of the page
+// (the version check) refers to a non-secure page
+if ($GLOBALS['cfg']['VersionCheck'] && ! $GLOBALS['PMA_Config']->get('is_https')) {
+    $class = 'jsversioncheck';
+}
+PMA_printListItem(__('Version information') . ': ' . PMA_VERSION, 'li_pma_version', null, null, null, null, $class);
 PMA_printListItem(__('Documentation'), 'li_pma_docs', 'Documentation.html', null, '_blank');
-PMA_printListItem(__('Wiki'), 'li_pma_wiki', 'http://wiki.phpmyadmin.net', null, '_blank');
+PMA_printListItem(__('Wiki'), 'li_pma_wiki', PMA_linkURL('http://wiki.phpmyadmin.net/'), null, '_blank');
 
 // does not work if no target specified, don't know why
-PMA_printListItem(__('Official Homepage'), 'li_pma_homepage', 'http://www.phpMyAdmin.net/', null, '_blank');
+PMA_printListItem(__('Official Homepage'), 'li_pma_homepage', PMA_linkURL('http://www.phpMyAdmin.net/'), null, '_blank');
+PMA_printListItem(__('Contribute'), 'li_pma_contribute', PMA_linkURL('http://www.phpmyadmin.net/home_page/improve.php'), null, '_blank');
+PMA_printListItem(__('Get support'), 'li_pma_support', PMA_linkURL('http://www.phpmyadmin.net/home_page/support.php'), null, '_blank');
+PMA_printListItem(__('List of changes'), 'li_pma_changes', PMA_linkURL('changelog.php'), null, '_blank');
 ?>
-    <li><bdo xml:lang="en" dir="ltr">
-        [<a href="changelog.php" target="_blank">ChangeLog</a>]
-        [<a href="http://phpmyadmin.git.sourceforge.net/git/gitweb-index.cgi"
-            target="_blank">Git</a>]
-        [<a href="http://sourceforge.net/mail/?group_id=23067"
-            target="_blank"><?php echo __('Mailing lists'); ?></a>]
-        </bdo>
-    </li>
     </ul>
  </div>
 
@@ -313,7 +310,7 @@ if ($server > 0) {
 }
 
 /**
- * Show warning when javascript support is missing.
+ * Show notice when javascript support is missing.
  */
 echo '<noscript>';
 $message = PMA_Message::notice(__('Javascript support is missing or disabled in your browser, some phpMyAdmin functionality will be missing. For example navigation frame will not refresh automatically.'));
@@ -347,6 +344,23 @@ if ($cfg['SuhosinDisableWarning'] == false && @ini_get('suhosin.request.max_valu
     }
 
 /**
+ * Warning about incomplete translations.
+ *
+ * The data file is created while creating release by ./scripts/remove-incomplete-mo
+ */
+if (file_exists('./libraries/language_stats.inc.php')) {
+    include('./libraries/language_stats.inc.php');
+    /*
+     * This message is intentionally not translated, because we're
+     * handling incomplete translations here and focus on english
+     * speaking users.
+     */
+    if (isset($GLOBALS['language_stats'][$lang]) && $GLOBALS['language_stats'][$lang] < $cfg['TranslationWarningThreshold']) {
+        trigger_error('You are using an incomplete translation, please help to make it better by <a href="http://www.phpmyadmin.net/home_page/improve.php#translate" target="_blank">contributing</a>.', E_USER_NOTICE);
+    }
+}
+
+/**
  * prints list item for main page
  *
  * @param   string  $name   displayed text
@@ -355,10 +369,16 @@ if ($cfg['SuhosinDisableWarning'] == false && @ini_get('suhosin.request.max_valu
  * @param   string  $mysql_help_page  display a link to MySQL's manual
  * @param   string  $target special target for $url
  * @param   string  $a_id   id for the anchor, used for jQuery to hook in functions
+ * @param   string  $class  class for the li element
+ * @param   string  $a_class  class for the anchor element
  */
-function PMA_printListItem($name, $id = null, $url = null, $mysql_help_page = null, $target = null, $a_id = null)
+function PMA_printListItem($name, $id = null, $url = null, $mysql_help_page = null, $target = null, $a_id = null, $class = null, $a_class = null)
 {
-    echo '<li id="' . $id . '">';
+    echo '<li id="' . $id . '"';
+    if (null !== $class) {
+        echo ' class="' . $class . '"';
+    }
+    echo '>';
     if (null !== $url) {
         echo '<a href="' . $url . '"';
         if (null !== $target) {
@@ -366,6 +386,9 @@ function PMA_printListItem($name, $id = null, $url = null, $mysql_help_page = nu
         }
         if (null != $a_id) {
             echo ' id="' . $a_id .'"';
+        }
+        if (null != $a_class) {
+            echo ' class="' . $a_class .'"';
         }
         echo '>';
     }

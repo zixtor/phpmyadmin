@@ -85,25 +85,31 @@ function appendNewUser(new_user_string, new_user_initial, new_user_initial_strin
     //Append the newly retrived user to the table now
 
     //Calculate the index for the new row
-    var curr_last_row = $("#usersForm").find('tbody').find('tr:last');
-    var curr_last_row_index_string = $(curr_last_row).find('input:checkbox').attr('id').match(/\d+/)[0];
+    var $curr_last_row = $("#usersForm").find('tbody').find('tr:last');
+    var $curr_first_row = $("#usersForm").find('tbody').find('tr:first');
+    var first_row_initial = $curr_first_row.find('label').html().substr(0, 1).toUpperCase();
+    var curr_shown_initial = $curr_last_row.find('label').html().substr(0, 1).toUpperCase();
+    var curr_last_row_index_string = $curr_last_row.find('input:checkbox').attr('id').match(/\d+/)[0];
     var curr_last_row_index = parseFloat(curr_last_row_index_string);
     var new_last_row_index = curr_last_row_index + 1;
     var new_last_row_id = 'checkbox_sel_users_' + new_last_row_index;
+    var is_show_all = (first_row_initial != curr_shown_initial) ? true : false;
 
     //Append to the table and set the id/names correctly
-    $(new_user_string)
-    .insertAfter($(curr_last_row))
-    .find('input:checkbox')
-    .attr('id', new_last_row_id)
-    .val(function() {
-        //the insert messes up the &amp;27; part. let's fix it
-        return $(this).val().replace(/&/,'&amp;');
-    })
-    .end()
-    .find('label')
-    .attr('for', new_last_row_id)
-    .end();
+    if((curr_shown_initial == new_user_initial) || is_show_all) {
+        $(new_user_string)
+        .insertAfter($curr_last_row)
+        .find('input:checkbox')
+        .attr('id', new_last_row_id)
+        .val(function() {
+            //the insert messes up the &amp;27; part. let's fix it
+            return $(this).val().replace(/&/,'&amp;');
+        })
+        .end()
+        .find('label')
+        .attr('for', new_last_row_id)
+        .end();
+    }
 
     //Let us sort the table alphabetically
     $("#usersForm").find('tbody').PMA_sort_table('label');
@@ -148,15 +154,16 @@ $(document).ready(function() {
      *
      * @see         PMA_ajaxShowMessage()
      * @see         appendNewUser()
+     * @see         $cfg['AjaxEnable'] 
      * @memberOf    jQuery
      * @name        add_user_click
      *
      */
-    $("#fieldset_add_user a").live("click", function(event) {
+    $("#fieldset_add_user a.ajax").live("click", function(event) {
         /** @lends jQuery */
         event.preventDefault();
 
-        PMA_ajaxShowMessage();
+        var $msgbox = PMA_ajaxShowMessage();
 
         /**
          * @var button_options  Object containing options for jQueryUI dialog buttons
@@ -167,7 +174,7 @@ $(document).ready(function() {
             /**
              * @var $form    stores reference to current form
              */
-            var $form = $(this).find("#addUsersForm");
+            var $form = $(this).find("form[name=usersForm]").last();
 
             if( ! checkAddUser($form.get(0)) ) {
                 PMA_ajaxShowMessage(PMA_messages['strFormEmpty']);
@@ -186,9 +193,9 @@ $(document).ready(function() {
                      .after(data.sql_query);
                                                                 
                      //Remove the empty notice div generated due to a NULL query passed to PMA_showMessage()
-                     var notice_class = $("#topmenucontainer").next("div").find('.notice');
-                     if($(notice_class).text() == '') {
-                        $(notice_class).remove();
+                     var $notice_class = $("#topmenucontainer").next("div").find('.notice');
+                     if($notice_class.text() == '') {
+                        $notice_class.remove();
                      }
 
                      appendNewUser(data.new_user_string, data.new_user_initial, data.new_user_initial_string);
@@ -204,15 +211,20 @@ $(document).ready(function() {
             .prepend(data)
             .find("#fieldset_add_user_footer").hide() //showing the "Go" and "Create User" buttons together will confuse the user
             .end()
-            .find("#addUsersForm").append('<input type="hidden" name="ajax_request" value="true" />')
+            .find("form[name=usersForm]").append('<input type="hidden" name="ajax_request" value="true" />')
             .end()
             .dialog({
                 title: PMA_messages['strAddNewUser'],
                 width: 800,
+                // height is a workaround for this Chrome problem:
+                // http://bugs.jqueryui.com/ticket/4671
+                // also it's interesting to be able to scroll this window
+                height: 600,
                 modal: true,
                 buttons: button_options
             }); //dialog options end
             displayPasswordGenerateButton();
+            PMA_ajaxRemoveMessage($msgbox);    
         }); // end $.get()
 
     });//end of Add New User AJAX event handler
@@ -222,10 +234,11 @@ $(document).ready(function() {
      * Ajax event handler for 'Reload Privileges' anchor
      *
      * @see         PMA_ajaxShowMessage()
+     * @see         $cfg['AjaxEnable'] 
      * @memberOf    jQuery
      * @name        reload_privileges_click
      */
-    $("#reload_privileges_anchor").live("click", function(event) {
+    $("#reload_privileges_anchor.ajax").live("click", function(event) {
         event.preventDefault();
 
         PMA_ajaxShowMessage(PMA_messages['strReloadingPrivileges']);
@@ -245,20 +258,23 @@ $(document).ready(function() {
      * AJAX handler for 'Revoke User'
      *
      * @see         PMA_ajaxShowMessage()
+     * @see         $cfg['AjaxEnable'] 
      * @memberOf    jQuery
      * @name        revoke_user_click
      */
-    $("#fieldset_delete_user_footer #buttonGo").live('click', function(event) {
+    $("#fieldset_delete_user_footer #buttonGo.ajax").live('click', function(event) {
         event.preventDefault();
 
         PMA_ajaxShowMessage(PMA_messages['strRemovingSelectedUsers']);
+
+        $form = $("#usersForm");
         
-        $.post($("#usersForm").attr('action'), $("#usersForm").serialize() + "&delete=" + $(this).attr('value') + "&ajax_request=true", function(data) {
+        $.post($form.attr('action'), $form.serialize() + "&delete=" + $(this).attr('value') + "&ajax_request=true", function(data) {
             if(data.success == true) {
                 PMA_ajaxShowMessage(data.message);
 
                 //Remove the revoked user from the users list
-                $("#usersForm").find("input:checkbox:checked").parents("tr").slideUp("medium", function() {
+                $form.find("input:checkbox:checked").parents("tr").slideUp("medium", function() {
                     var this_user_initial = $(this).find('input:checkbox').val().charAt(0).toUpperCase();
                     $(this).remove();
 
@@ -268,7 +284,7 @@ $(document).ready(function() {
                     }
 
                     //Re-check the classes of each row
-                    $("#usersForm")
+                    $form
                     .find('tbody').find('tr:odd')
                     .removeClass('even').addClass('odd')
                     .end()
@@ -293,12 +309,13 @@ $(document).ready(function() {
      * Step 1: Load Edit User Dialog
      * @memberOf    jQuery
      * @name        edit_user_click
+     * @see         $cfg['AjaxEnable'] 
      */
-    $(".edit_user_anchor").live('click', function(event) {
+    $(".edit_user_anchor.ajax").live('click', function(event) {
         /** @lends jQuery */
         event.preventDefault();
 
-        PMA_ajaxShowMessage();
+        var $msgbox = PMA_ajaxShowMessage();
 
         $(this).parents('tr').addClass('current_row');
 
@@ -313,9 +330,11 @@ $(document).ready(function() {
             .append(data)
             .dialog({
                 width: 900,
+                height: 600,
                 buttons: button_options
             }); //dialog options end
             displayPasswordGenerateButton();
+            PMA_ajaxRemoveMessage($msgbox);    
         }) // end $.get()
     })
 
@@ -323,10 +342,11 @@ $(document).ready(function() {
      * Step 2: Submit the Edit User Dialog
      * 
      * @see         PMA_ajaxShowMessage()
+     * @see         $cfg['AjaxEnable'] 
      * @memberOf    jQuery
      * @name        edit_user_submit
      */
-    $("#edit_user_dialog").find("form").live('submit', function(event) {
+    $("#edit_user_dialog").find("form:not(#db_or_table_specific_priv)").live('submit', function(event) {
         /** @lends jQuery */
         event.preventDefault();
 
@@ -369,8 +389,18 @@ $(document).ready(function() {
                     appendNewUser(data.new_user_string, data.new_user_initial, data.new_user_initial_string);
                 }
 
-                //Change privileges if they were edited
-                if(data.new_privileges) {
+                //Check if we are on the page of the db-specific privileges
+                var db_priv_page = !!($('#dbspecificuserrights').length); // the "!!" part is merely there to ensure a value of type boolean
+                // we always need to reload on the db-specific privilege page
+                // and on the global page when adjusting global privileges,
+                // but not on the global page when adjusting db-specific privileges.
+                var reload_privs = false;
+                if (data.db_specific_privs == false || (db_priv_page == data.db_specific_privs)) {
+                    reload_privs = true;
+                }
+
+                //Change privileges, if they were edited and need to be reloaded
+                if(data.new_privileges && reload_privs) {
                     $("#usersForm")
                     .find('.current_row')
                     .find('tt')
@@ -392,14 +422,15 @@ $(document).ready(function() {
      * AJAX handler for 'Export Privileges'
      *
      * @see         PMA_ajaxShowMessage()
+     * @see         $cfg['AjaxEnable'] 
      * @memberOf    jQuery
      * @name        export_user_click
      */
-    $(".export_user_anchor").live('click', function(event) {
+    $(".export_user_anchor.ajax").live('click', function(event) {
         /** @lends jQuery */
         event.preventDefault();
 
-        PMA_ajaxShowMessage();
+        var $msgbox = PMA_ajaxShowMessage();
 
         /**
          * @var button_options  Object containing options for jQueryUI dialog buttons
@@ -414,6 +445,7 @@ $(document).ready(function() {
                 width : 500,
                 buttons: button_options
             });
+            PMA_ajaxRemoveMessage($msgbox);            
         }) //end $.get
     }) //end export privileges
 
@@ -421,26 +453,43 @@ $(document).ready(function() {
      * AJAX handler to Paginate the Users Table
      *
      * @see         PMA_ajaxShowMessage()
+     * @see         $cfg['AjaxEnable'] 
      * @name        paginate_users_table_click
      * @memberOf    jQuery
      */
-    $("#initials_table").find("a").live('click', function(event) {
+    $("#initials_table.ajax").find("a").live('click', function(event) {
         event.preventDefault();
 
-        PMA_ajaxShowMessage();
+        var $msgbox = PMA_ajaxShowMessage();
 
         $.get($(this).attr('href'), {'ajax_request' : true}, function(data) {
-            $("#usersForm")
-            .hide("medium")
-            .siblings("#initials_table")
-            .after(data)
-            .show("medium")
-            .end()
-            .remove();
-            $("#initials_table").siblings("h2").not(":first").remove();
+            // This form is not on screen when first entering Privileges
+            // if there are more than 50 users
+            $("#usersForm").hide("medium").remove();
+            $("#fieldset_add_user").hide("medium").remove();
+            $("#initials_table")
+             .after(data).show("medium")
+             .siblings("h2").not(":first").remove();
+
+            PMA_ajaxRemoveMessage($msgbox);
         }) // end $.get
     })// end of the paginate users table
 
+    /*
+     * Additional confirmation dialog after clicking 
+     * 'Drop the databases...'
+     */
+    $('#checkbox_drop_users_db').click(function() {
+        $this_checkbox = $(this);
+        if ($this_checkbox.is(':checked')) {
+            var is_confirmed = confirm(PMA_messages['strDropDatabaseStrongWarning'] + '\n' + PMA_messages['strDoYouReally'] + ' :\nDROP DATABASE');
+            if (! is_confirmed) {
+                $this_checkbox.attr('checked', false);
+            }
+        }
+    });
+
+    displayPasswordGenerateButton();
 }, 'top.frame_content'); //end $(document).ready()
 
 /**#@- */

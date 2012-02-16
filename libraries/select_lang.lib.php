@@ -199,8 +199,6 @@ function PMA_langDetect($str, $envType)
  */
 function PMA_langDetails($lang) {
     switch ($lang) {
-        case 'en':
-            return array('en|english', 'en', '');
         case 'af':
             return array('af|afrikaans', 'af', '');
         case 'ar':
@@ -208,7 +206,7 @@ function PMA_langDetails($lang) {
         case 'az':
             return array('az|azerbaijani', 'az', 'Az&#601;rbaycanca');
         case 'bn':
-            return array('bn|bangla', 'bn', '');
+            return array('bn|bangla', 'bn', 'বাংলা');
         case 'be':
             return array('be|belarusian', 'be', '&#1041;&#1077;&#1083;&#1072;&#1088;&#1091;&#1089;&#1082;&#1072;&#1103;');
         case 'be@latin':
@@ -217,6 +215,8 @@ function PMA_langDetails($lang) {
             return array('bg|bulgarian', 'bg', '&#1041;&#1098;&#1083;&#1075;&#1072;&#1088;&#1089;&#1082;&#1080;');
         case 'bs':
             return array('bs|bosnian', 'bs', 'Bosanski');
+        case 'br':
+            return array('br|breton', 'br', 'Brezhoneg');
         case 'ca':
             return array('ca|catalan', 'ca', 'Catal&agrave;');
         case 'cs':
@@ -341,6 +341,11 @@ function PMA_langList()
     /* We can always speak English */
     $result = array('en' => PMA_langDetails('en'));
 
+    /* Check for existing directory */
+    if (!is_dir($GLOBALS['lang_path'])) {
+        return $result;
+    }
+
     /* Open the directory */
     $handle = @opendir($GLOBALS['lang_path']);
     /* This can happen if the kit is English-only */
@@ -368,7 +373,7 @@ $GLOBALS['lang_path'] = './locale/';
 /**
  * Load gettext functions.
  */
-require './libraries/php-gettext/gettext.inc';
+require GETTEXT_INC;
 
 /**
  * @global string  interface language
@@ -452,7 +457,7 @@ if (! PMA_langCheck()) {
             . __FILE__ . '#' . $line . ', check hard coded fall back language.',
             E_USER_WARNING);
         // stop execution
-        // and tell the user that his choosen language is invalid
+        // and tell the user that his chosen language is invalid
         PMA_fatalError('Could not load any language, please check your language settings and folder.');
     }
 }
@@ -479,7 +484,7 @@ if (! function_exists('__')) {
 $charset = 'utf-8';
 
 /* l10n: Text direction, use either ltr or rtl */
-$text_dir = __('ltr');
+$GLOBALS['text_dir'] = __('ltr');
 
 // now, that we have loaded the language strings we can send the errors
 if ($GLOBALS['lang_failed_cfg']) {

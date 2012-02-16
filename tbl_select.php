@@ -16,6 +16,7 @@
 require_once './libraries/common.inc.php';
 require_once './libraries/mysql_charsets.lib.php';
 
+$GLOBALS['js_include'][] = 'sql.js';
 $GLOBALS['js_include'][] = 'tbl_select.js';
 $GLOBALS['js_include'][] = 'jquery/jquery-ui-1.8.custom.js';
 $GLOBALS['js_include'][] = 'jquery/timepicker.js';
@@ -60,7 +61,6 @@ if (!isset($param) || $param[0] == '') {
     // Gets the list and number of fields
     $result     = PMA_DBI_query('SHOW FULL FIELDS FROM ' . PMA_backquote($table) . ' FROM ' . PMA_backquote($db) . ';', null, PMA_DBI_QUERY_STORE);
     $fields_cnt = PMA_DBI_num_rows($result);
-    // rabue: we'd better ensure, that all arrays are empty.
     $fields_list = $fields_null = $fields_type = $fields_collation = array();
     while ($row = PMA_DBI_fetch_assoc($result)) {
         $fields_list[] = $row['Field'];
@@ -98,27 +98,7 @@ if (!isset($param) || $param[0] == '') {
     // foreign keys from innodb)
     $foreigners = PMA_getForeigners($db, $table);
     ?>
-<script type="text/javascript">
-// <![CDATA[
-function PMA_tbl_select_operator(f, index, multiple) {
-    switch (f.elements["func[" + index + "]"].options[f.elements["func[" + index + "]"].selectedIndex].value) {
-<?php
-reset($GLOBALS['cfg']['UnaryOperators']);
-while (list($operator) = each($GLOBALS['cfg']['UnaryOperators'])) {
-    echo '        case "' . $operator . "\":\r\n";
-}
-?>
-            bDisabled = true;
-            break;
-
-        default:
-            bDisabled = false;
-    }
-    f.elements["fields[" + index + "]" + ((multiple) ? "[]": "")].disabled = bDisabled;
-}
-// ]]>
-</script>
-<form method="post" action="tbl_select.php" name="insertForm" id="tbl_search_form">
+        <form method="post" action="tbl_select.php" name="insertForm" id="tbl_search_form" <?php echo ($GLOBALS['cfg']['AjaxEnable'] ? ' class="ajax"' : ''); ?>>
 <?php echo PMA_generate_common_hidden_inputs($db, $table); ?>
 <input type="hidden" name="goto" value="<?php echo $goto; ?>" />
 <input type="hidden" name="back" value="tbl_select.php" />
@@ -142,9 +122,9 @@ while (list($operator) = each($GLOBALS['cfg']['UnaryOperators'])) {
 
     for ($i = 0; $i < $fields_cnt; $i++) {
         ?>
-        <tr class="<?php echo $odd_row ? 'odd' : 'even'; $odd_row = ! $odd_row; ?>">
+        <tr class="noclick <?php echo $odd_row ? 'odd' : 'even'; $odd_row = ! $odd_row; ?>">
             <th><?php echo htmlspecialchars($fields_list[$i]); ?></th>
-            <td><?php echo $fields_type[$i]; ?></td>
+            <td><?php echo htmlspecialchars($fields_type[$i]); ?></td>
             <td><?php echo $fields_collation[$i]; ?></td>
             <td><select name="func[]">
         <?php
@@ -210,7 +190,7 @@ while (list($operator) = each($GLOBALS['cfg']['UnaryOperators'])) {
             <?php
         } elseif (strncasecmp($fields_type[$i], 'enum', 4) == 0) {
             // e n u m s
-            $enum_value=explode(', ', str_replace("'", '', substr($fields_type[$i], 5, -1)));
+            $enum_value=explode(', ', str_replace("'", '', substr(htmlspecialchars($fields_type[$i]), 5, -1)));
             $cnt_enum_value = count($enum_value);
             echo '            <select name="fields[' . $i . '][]"'
                 .' multiple="multiple" size="' . min(3, $cnt_enum_value) . '">' . "\n";
@@ -221,29 +201,16 @@ while (list($operator) = each($GLOBALS['cfg']['UnaryOperators'])) {
             echo '            </select>' . "\n";
         } else {
             // o t h e r   c a s e s
+            $the_class = 'textfield';
+            $type = $fields_type[$i];
+            if ($type == 'date') {
+                $the_class .= ' datefield';
+            } elseif ($type == 'datetime' || substr($type, 0, 9) == 'timestamp') {
+                $the_class .= ' datetimefield';
+            }
             echo '            <input type="text" name="fields[' . $i . ']"'
-                .' size="40" class="textfield" id="field_' . $i . '" />' .  "\n";
+                .' size="40" class="' . $the_class . '" id="field_' . $i . '" />' .  "\n";
         };
-        $type = $fields_type[$i];
-        if ($type == 'date' || $type == 'datetime' || substr($type, 0, 9) == 'timestamp') {
-        ?>
-<script type="text/javascript">
-//<![CDATA[
-$(function() {
-    $('#field_<?php echo $i; ?>').datepicker({
-    	duration: '',
-		time24h: true,
-		 stepMinutes: 1,
-        stepHours: 1,
-        <?php echo ($type == 'date' ? "showTime: false,":"showTime: true,"); ?>
-		altTimeField: '',
-        constrainInput: false
-     });
-});
-//]]>
-</script>
-        <?php
-        }
         ?>
             <input type="hidden" name="names[<?php echo $i; ?>]"
                 value="<?php echo htmlspecialchars($fields_list[$i]); ?>" />
@@ -323,7 +290,7 @@ $(function() {
     <input type="submit" name="submit" value="<?php echo __('Go'); ?>" />
 </fieldset>
 </form>
-<div id="searchresults"></div>
+<div id="sqlqueryresults"></div>
     <?php
     require './libraries/footer.inc.php';
 }
