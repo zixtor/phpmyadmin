@@ -31,6 +31,8 @@ if (isset($plugin_list)) {
     $plugin_list['xml']['options'][] =
         array('type' => 'bool', 'name' => 'export_struc', 'text' => __('Structure Schemas'));
     $plugin_list['xml']['options'][] =
+        array('type' => 'bool', 'name' => 'export_events', 'text' => __('Events'));
+    $plugin_list['xml']['options'][] =
         array('type' => 'bool', 'name' => 'export_functions', 'text' => __('Functions'));
     $plugin_list['xml']['options'][] =
         array('type' => 'bool', 'name' => 'export_procedures', 'text' => __('Procedures'));
