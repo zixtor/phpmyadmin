@@ -247,7 +247,7 @@ AJAX.registerOnload('sql.js', function () {
 
         PMA_prepareForAjaxRequest($form);
 
-        $.post($form.attr('action'), $form.serialize(), function (data) {
+        $.post($form.attr('action'), $form.serialize()+"&ajax_page_request=true", function (data) {
             if (data.success === true) {
                 // success happens if the query returns rows or not
                 //
@@ -308,7 +308,9 @@ AJAX.registerOnload('sql.js', function () {
                     });
                     PMA_reloadNavigation();
                 }
-
+                if(data._scripts){
+                    AJAX.scriptHandler.load(data._scripts);
+                }
                 $sqlqueryresults.show().trigger('makegrid');
                 $('#togglequerybox').show();
                 PMA_init_slider();
