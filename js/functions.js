@@ -1775,10 +1775,13 @@ function PMA_doc_add($elm, params)
         return;
     }
 
+    var encodablePartInUrl = mysql_doc_template.split(/http(.+)/);
     var url = PMA_sprintf(
-        decodeURIComponent(mysql_doc_template),
+        decodeURIComponent(encodablePartInUrl[1]),
         params[0]
     );
+    url = encodablePartInUrl[0] + 'http' + encodeURIComponent(url);
+
     if (params.length > 1) {
         url += '#' + params[1];
     }
